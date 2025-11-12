@@ -155,7 +155,12 @@ class EntryController extends Controller
             // entry saved, dispatch event about it!
             $this->get('event_dispatcher')->dispatch(EntrySavedEvent::NAME, new EntrySavedEvent($entry));
         }
-
+        
+        if($entry->getTitle() == "Just a moment..." && $request->get('title') !== null) {
+            $entry->setTitle($request->get('title'));
+            $em->flush();
+        }
+        
         return $this->redirect($this->generateUrl('homepage'));
     }
 
