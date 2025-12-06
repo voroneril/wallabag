@@ -79,6 +79,7 @@
         "mnapoli/piwik-twig-extension": "^3.0",
         "nelmio/api-doc-bundle": "^2.13.2",
         "nelmio/cors-bundle": "~1.5",
+        "nicosomb/wallabag-webarchive-bundle": "^1.0@alpha",
         "ocramius/proxy-manager": "^2.1.1",
         "pagerfanta/pagerfanta": "^2.4",
         "php-amqplib/rabbitmq-bundle": "^1.14",

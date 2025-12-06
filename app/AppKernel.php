@@ -43,6 +43,7 @@ class AppKernel extends Kernel
             new Wallabag\UserBundle\WallabagUserBundle(),
             new Wallabag\ImportBundle\WallabagImportBundle(),
             new Wallabag\AnnotationBundle\WallabagAnnotationBundle(),
+            new Nicosomb\WallabagWebarchiveBundle\NicosombWallabagWebarchiveBundle(),
         ];
 
         if (in_array($this->getEnvironment(), ['dev', 'test'], true)) {

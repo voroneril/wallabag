@@ -426,3 +426,7 @@ httplug:
 # define custom entity so we can override length attribute to fix utf8mb4 issue
 craue_config:
     entity_name: Wallabag\CoreBundle\Entity\InternalSetting
+
+# see https://github.com/nicosomb/wallabag-webarchive-bundle
+nicosomb_wallabag_webarchive:
+    enabled: true
