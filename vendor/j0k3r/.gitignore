@@ -1,0 +1,22 @@
+# Ignore everything
+*
+
+# Unignore the root .gitignore file itself
+!.gitignore
+
+# Unignore the 'graby-site-config' directory
+!/graby-site-config/pravda.ru.txt
+!/graby-site-config/securitylab.ru.txt
+!/graby-site-config/knife.media.txt
+!/graby-site-config/paranormal-news.ru.txt
+!/graby-site-config/nplus1.ru.txt
+!/graby-site-config/naked-science.ru.txt
+!/graby-site-config/zoom.cnews.ru.txt
+!/graby-site-config/incrussia.ru.txt
+!/graby-site-config/hightech.fm.txt
+!/graby-site-config/ixbt.com.txt
+!/graby-site-config/nuancesprog.ru.txt
+!/graby-site-config/hi-news.ru.txt
+!/graby-site-config/habr.com.txt
+!/graby-site-config/.livejournal.com.txt
+!/graby-site-config/vk.com.txt

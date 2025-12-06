@@ -1,0 +1,8 @@
+# Ignore everything
+*
+
+# Unignore the root .gitignore file itself
+!.gitignore
+
+# Unignore the 'j0k3r' directory
+!/j0k3r/
