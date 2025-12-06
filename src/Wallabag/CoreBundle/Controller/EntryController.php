@@ -124,6 +124,24 @@ class EntryController extends Controller
             $em->persist($entry);
             $em->flush();
 
+            $published_by = $entry->getPublishedBy();
+            if ($published_by) {
+                if (is_array($published_by) && sizeof($published_by) > 0) {
+                    $need_update = false;
+                    foreach ($published_by as $author_id => $author) {
+                        if (strpos($author, 'Ð') !== false) {
+                            $need_update = true;
+                            $utf8_string = mb_convert_encoding($author, 'Windows-1252', 'UTF-8');
+                            $published_by[$author_id] = $utf8_string;
+                        }
+                    }
+                    if ($need_update) {
+                        $entry->setPublishedBy($published_by);
+                        $em->flush();
+                    }
+                }
+            }
+        
             // entry saved, dispatch event about it!
             $this->get('event_dispatcher')->dispatch(EntrySavedEvent::NAME, new EntrySavedEvent($entry));
 
@@ -159,6 +177,24 @@ class EntryController extends Controller
         if($entry->getTitle() == "Just a moment..." && $request->get('title') !== null) {
             $entry->setTitle($request->get('title'));
             $em->flush();
+        }
+        
+        $published_by = $entry->getPublishedBy();
+        if ($published_by) {
+            if (is_array($published_by) && sizeof($published_by) > 0) {
+                $need_update = false;
+                foreach ($published_by as $author_id => $author) {
+                    if (strpos($author, 'Ð') !== false) {
+                        $need_update = true;
+                        $utf8_string = mb_convert_encoding($author, 'Windows-1252', 'UTF-8');
+                        $published_by[$author_id] = $utf8_string;
+                    }
+                }
+                if ($need_update) {
+                    $entry->setPublishedBy($published_by);
+                    $em->flush();
+                }
+            }
         }
         
         return $this->redirect($this->generateUrl('homepage'));
@@ -364,6 +400,24 @@ class EntryController extends Controller
         $em = $this->getDoctrine()->getManager();
         $em->persist($entry);
         $em->flush();
+        
+        $published_by = $entry->getPublishedBy();
+        if ($published_by) {
+            if (is_array($published_by) && sizeof($published_by) > 0) {
+                $need_update = false;
+                foreach ($published_by as $author_id => $author) {
+                    if (strpos($author, 'Ð') !== false) {
+                        $need_update = true;
+                        $utf8_string = mb_convert_encoding($author, 'Windows-1252', 'UTF-8');
+                        $published_by[$author_id] = $utf8_string;
+                    }
+                }
+                if ($need_update) {
+                    $entry->setPublishedBy($published_by);
+                    $em->flush();
+                }
+            }
+        }
 
         // entry saved, dispatch event about it!
         $this->get('event_dispatcher')->dispatch(EntrySavedEvent::NAME, new EntrySavedEvent($entry));
