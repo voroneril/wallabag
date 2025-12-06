@@ -1,0 +1,11 @@
+body: //section[@id="default-list-item"]/div[(contains(concat(' ',normalize-space(@class),' '),' article '))]
+#title: //h1[@class='title']
+title: //div[@class='second-title']
+author: //section[@id="default-list-item"]/div[@class="authors-block"]//a
+strip: //div[@class='second-title']
+
+strip_id_or_class: page__subscribe-news
+strip_id_or_class: news-subscribe
+strip_id_or_class: advertising
+strip_id_or_class: subscribe-block
+strip_id_or_class: audio

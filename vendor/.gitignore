@@ -6,3 +6,6 @@
 
 # Unignore the 'j0k3r' directory
 !/j0k3r/
+!/j0k3r/graby-site-config/
+!/j0k3r/graby-site-config/*
+!/j0k3r/.gitignore

@@ -1,0 +1,2 @@
+body: //div[@id='content-wrapper']/article/div[contains(concat(' ',normalize-space(@class),' '),' topic-content ')]
+title: //div[@id='content-wrapper']/article//h1[contains(concat(' ',normalize-space(@class),' '),' topic-title ')]

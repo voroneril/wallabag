@@ -1,0 +1,1 @@
+strip: //figure[@class='figure figure--similar']

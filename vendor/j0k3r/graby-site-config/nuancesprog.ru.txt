@@ -1,0 +1,2 @@
+body: //div[contains(concat(' ',normalize-space(@class),' '),' td-post-content ')]
+title: //h1[@class='entry-title']

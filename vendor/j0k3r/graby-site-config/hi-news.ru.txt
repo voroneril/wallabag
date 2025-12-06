@@ -1,0 +1,12 @@
+body: //div[@id='post']/div[@class='text']
+title: //h1[@class='single-title']
+author: //div[@id='post']//a[@class="author"]
+
+strip_id_or_class: banner_telegram
+strip_id_or_class: af_advert_recommend
+strip_id_or_class: social
+strip_id_or_class: news
+strip_id_or_class: related-posts
+strip_id_or_class: breadcrumbs
+strip_id_or_class: tags
+strip_id_or_class: af_advert_content

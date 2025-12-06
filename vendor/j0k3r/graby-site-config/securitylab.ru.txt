@@ -1,0 +1,4 @@
+title: //h1[contains(concat(' ',normalize-space(@class),' '),' page-title ')]
+body: //div[@class='tape-element']/div[@class='container cpb']
+
+strip_id_or_class: hacker-banner

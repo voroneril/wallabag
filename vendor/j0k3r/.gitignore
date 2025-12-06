@@ -1,5 +1,8 @@
 # Ignore everything
-*
+/graby/*
+/php-readability/*
+/httplug-ssrf-plugin/*
+/graby-site-config/*
 
 # Unignore the root .gitignore file itself
 !.gitignore

@@ -1,0 +1,6 @@
+body: //div[contains(concat(' ',normalize-space(@class),' '),' page-content__main ')]
+title: //div[@class='page-content__author']//span[@class='user__name']
+
+strip_id_or_class: ad-banner
+strip_id_or_class: page-content__footer
+strip_id_or_class: page-content__sidebar

@@ -1,0 +1,2 @@
+strip: //section[@class='mb-9 md:mb-20']
+strip: //header

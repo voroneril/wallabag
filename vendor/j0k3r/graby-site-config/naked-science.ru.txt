@@ -1,0 +1,6 @@
+title: //div[@class='content']//div[@class='post-title']/h1
+
+strip_id_or_class: other-news-block
+strip_id_or_class: modal-add-post-ok
+strip_id_or_class: shesht-fancy-block-auth 
+strip_id_or_class: shesht-other-news-block
