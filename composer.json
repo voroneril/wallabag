@@ -93,6 +93,7 @@
         "mnapoli/piwik-twig-extension": "^3.0",
         "nelmio/api-doc-bundle": "^4.11.1",
         "nelmio/cors-bundle": "^2.3.1",
+        "nicosomb/wallabag-webarchive-bundle": "^1.0@alpha",
         "ocramius/proxy-manager": "^2.1.1",
         "pagerfanta/doctrine-orm-adapter": "^3.8",
         "pagerfanta/twig": "^3.8",

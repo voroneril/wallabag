@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f55cde30f67f014d2bf0b589a2fbe5c4",
+    "content-hash": "c3b735308cf29941ae9f332d1fd50ac2",
     "packages": [
         {
             "name": "babdev/pagerfanta-bundle",
@@ -6149,6 +6149,55 @@
                 "source": "https://github.com/nelmio/NelmioCorsBundle/tree/2.3.1"
             },
             "time": "2023-02-16T08:49:29+00:00"
+        },
+        {
+            "name": "nicosomb/wallabag-webarchive-bundle",
+            "version": "1.0.0-alpha.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nicosomb/wallabag-webarchive-bundle.git",
+                "reference": "3f1e2909709adc34fd587d27c37c5a5227695f9a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nicosomb/wallabag-webarchive-bundle/zipball/3f1e2909709adc34fd587d27c37c5a5227695f9a",
+                "reference": "3f1e2909709adc34fd587d27c37c5a5227695f9a",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.3"
+            },
+            "type": "symfony-bundle",
+            "autoload": {
+                "psr-4": {
+                    "Nicosomb\\WallabagWebarchiveBundle\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nicolas Lœuillet",
+                    "email": "nicolas@loeuillet.org",
+                    "homepage": "https://nicolas.loeuillet.org"
+                }
+            ],
+            "description": "If http status is 404, ask web.archive if there is a snapshot to archive it.",
+            "homepage": "https://github.com/nicosomb/wallabag-webarchive-bundle",
+            "keywords": [
+                "bundle",
+                "symfony3",
+                "wallabag",
+                "wallabag-plugin",
+                "webarchive"
+            ],
+            "support": {
+                "issues": "https://github.com/nicosomb/wallabag-webarchive-bundle/issues",
+                "source": "https://github.com/nicosomb/wallabag-webarchive-bundle/tree/master"
+            },
+            "time": "2020-04-03T12:23:02+00:00"
         },
         {
             "name": "pagerfanta/core",
@@ -17715,7 +17764,8 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "friendsofsymfony/oauth-server-bundle": 20
+        "friendsofsymfony/oauth-server-bundle": 20,
+        "nicosomb/wallabag-webarchive-bundle": 15
     },
     "prefer-stable": true,
     "prefer-lowest": false,
@@ -17743,5 +17793,5 @@
     "platform-overrides": {
         "php": "7.4.29"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
