@@ -1,6 +1,17 @@
 body: //div[@id='post-content-body']
 body: //div[contains(@class, 'post__body')]
-author: //div[contains(@class, 'tm-user-card__name_variant-article')]
+
+#author: //div[contains(@class, 'tm-user-card__name_variant-article')]
+#author: //div[contains(@class, 'tm-user-info__username')]
+
+author: //div[contains(concat(' ',normalize-space(@class),' '),' article-author ')]//span[contains(concat(' ',normalize-space(@class),' '),' name ')]
+#author: //span[contains(concat(' ',normalize-space(@class),' '),' name ')]
+
+#author: //div[contains(@class, 'article-author')]//span[contains(@class, 'name')]
+#author: //span[contains(@class, 'name')]
+
+#author: //div[@class='article-author']//span[@class='name']
+#author: //span[@class='name']
 
 strip: //section[@class='article__infopanel']
 strip: //script
@@ -8,6 +19,7 @@ strip: //div[@class='floating-image']
 
 prune: no
 tidy: no
+#skip_json_ld: yes
 
 replace_string(<details): <div
 replace_string(</details>): </div>
