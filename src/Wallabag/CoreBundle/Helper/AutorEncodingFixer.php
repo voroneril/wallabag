@@ -1,6 +1,8 @@
 <?php
 
 namespace Wallabag\CoreBundle\Helper;
+use Doctrine\ORM\EntityManagerInterface;
+use Wallabag\CoreBundle\Entity\Entry;
 
 /**
  * Hash URLs for privacy and performance.
@@ -23,7 +25,7 @@ class AutorEncodingFixer
         if ($published_by) {
             if (is_array($published_by) && sizeof($published_by) > 0) {
                 foreach ($published_by as $author_id => $author) {
-                    if (strpos($author, 'Ð') !== false) {
+                    if (is_string($author) && strpos($author, 'Ð') !== false) {
                         $need_update = true;
                         $utf8_string = mb_convert_encoding($author, 'Windows-1252', 'UTF-8');
                         $published_by[$author_id] = $utf8_string;
