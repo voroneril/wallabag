@@ -1,0 +1,3 @@
+# braintools.ru
+title: //h1[contains(concat(' ',normalize-space(@class),' '),' post-title ')]
+body: //div[contains(concat(' ',normalize-space(@class),' '),' single ')]/div[@itemprop="reviewBody"]

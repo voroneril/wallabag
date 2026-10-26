@@ -1,0 +1,2 @@
+title: //h1[contains(concat(' ',normalize-space(@class),' '),' pagetitle ')]
+body: //div[contains(concat(' ',normalize-space(@class),' '),' singlepost ')]

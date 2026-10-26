@@ -1,0 +1,2 @@
+title: //h1[(contains(concat(' ',normalize-space(@class),' '),' wp-block-knightowl-blocks-post-title '))]
+body: //article[(contains(concat(' ',normalize-space(@class),' '),' wp-block-post-content '))]

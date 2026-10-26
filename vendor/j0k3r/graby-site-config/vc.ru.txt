@@ -1,0 +1,2 @@
+title: //h1[(contains(concat(' ',normalize-space(@class),' '),' content-title '))]
+body: //article[@class='content__blocks']

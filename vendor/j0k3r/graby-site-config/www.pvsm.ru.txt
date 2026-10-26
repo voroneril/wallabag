@@ -1,0 +1,2 @@
+body: //div[@class="entry singlepost"]
+title: //h1[@class='pagetitle entry-title']/span

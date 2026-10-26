@@ -21,7 +21,7 @@ docker-compose.override.yml
 /app/config/parameters.yml
 
 # Managed by Composer
-/vendor/
+#/vendor/
 
 # Assets and user uploads
 web/uploads/
