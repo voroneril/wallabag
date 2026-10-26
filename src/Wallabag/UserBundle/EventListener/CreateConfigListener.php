@@ -2,11 +2,11 @@
 
 namespace Wallabag\UserBundle\EventListener;
 
-use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityManagerInterface;
 use FOS\UserBundle\Event\UserEvent;
 use FOS\UserBundle\FOSUserEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Wallabag\CoreBundle\Entity\Config;
 
 /**
@@ -16,7 +16,6 @@ use Wallabag\CoreBundle\Entity\Config;
 class CreateConfigListener implements EventSubscriberInterface
 {
     private $em;
-    private $theme;
     private $itemsOnPage;
     private $feedLimit;
     private $language;
@@ -24,11 +23,11 @@ class CreateConfigListener implements EventSubscriberInterface
     private $actionMarkAsRead;
     private $listMode;
     private $session;
+    private $displayThumbnails;
 
-    public function __construct(EntityManager $em, $theme, $itemsOnPage, $feedLimit, $language, $readingSpeed, $actionMarkAsRead, $listMode, Session $session)
+    public function __construct(EntityManagerInterface $em, $itemsOnPage, $feedLimit, $language, $readingSpeed, $actionMarkAsRead, $listMode, $displayThumbnails, SessionInterface $session)
     {
         $this->em = $em;
-        $this->theme = $theme;
         $this->itemsOnPage = $itemsOnPage;
         $this->feedLimit = $feedLimit;
         $this->language = $language;
@@ -36,6 +35,7 @@ class CreateConfigListener implements EventSubscriberInterface
         $this->actionMarkAsRead = $actionMarkAsRead;
         $this->listMode = $listMode;
         $this->session = $session;
+        $this->displayThumbnails = $displayThumbnails;
     }
 
     public static function getSubscribedEvents()
@@ -52,13 +52,13 @@ class CreateConfigListener implements EventSubscriberInterface
     public function createConfig(UserEvent $event)
     {
         $config = new Config($event->getUser());
-        $config->setTheme($this->theme);
         $config->setItemsPerPage($this->itemsOnPage);
         $config->setFeedLimit($this->feedLimit);
         $config->setLanguage($this->session->get('_locale', $this->language));
         $config->setReadingSpeed($this->readingSpeed);
         $config->setActionMarkAsRead($this->actionMarkAsRead);
         $config->setListMode($this->listMode);
+        $config->setDisplayThumbnails($this->displayThumbnails);
 
         $this->em->persist($config);
         $this->em->flush();

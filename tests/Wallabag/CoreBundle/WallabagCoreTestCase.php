@@ -2,24 +2,28 @@
 
 namespace Tests\Wallabag\CoreBundle;
 
-use Symfony\Bundle\FrameworkBundle\Client;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
-use Wallabag\CoreBundle\Entity\Config;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Wallabag\UserBundle\Entity\User;
 
 abstract class WallabagCoreTestCase extends WebTestCase
 {
     /**
-     * @var Client|null
+     * @var KernelBrowser|null
      */
     private $client = null;
 
     protected function setUp(): void
     {
+        static::ensureKernelShutdown();
+
         parent::setUp();
 
         $this->client = static::createClient();
@@ -27,15 +31,17 @@ abstract class WallabagCoreTestCase extends WebTestCase
 
     public function getNewClient()
     {
+        static::ensureKernelShutdown();
+
         return $this->client = static::createClient();
     }
 
-    public function getClient()
+    public function getTestClient()
     {
         return $this->client;
     }
 
-    public function resetDatabase(Client $client)
+    public function resetDatabase(KernelBrowser $client)
     {
         $application = new Application($client->getKernel());
         $application->setAutoExit(false);
@@ -70,7 +76,7 @@ abstract class WallabagCoreTestCase extends WebTestCase
 
     public function getEntityManager()
     {
-        return $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        return $this->client->getContainer()->get(EntityManagerInterface::class);
     }
 
     /**
@@ -82,7 +88,7 @@ abstract class WallabagCoreTestCase extends WebTestCase
     public function logInAs($username)
     {
         $container = $this->client->getContainer();
-        $session = $container->get('session');
+        $session = $container->get(SessionInterface::class);
 
         $userManager = $container->get('fos_user.user_manager.test');
         $loginManager = $container->get('fos_user.security.login_manager.test');
@@ -96,7 +102,7 @@ abstract class WallabagCoreTestCase extends WebTestCase
 
         $loginManager->logInUser($firewallName, $user);
 
-        $session->set('_security_' . $firewallName, serialize($container->get('security.token_storage')->getToken()));
+        $session->set('_security_' . $firewallName, serialize($container->get(TokenStorageInterface::class)->getToken()));
         $session->save();
 
         $cookie = new Cookie($session->getName(), $session->getId());
@@ -129,7 +135,7 @@ abstract class WallabagCoreTestCase extends WebTestCase
      */
     public function getLoggedInUser()
     {
-        $token = static::$kernel->getContainer()->get('security.token_storage')->getToken();
+        $token = static::$kernel->getContainer()->get(TokenStorageInterface::class)->getToken();
 
         if (null !== $token) {
             return $token->getUser();
@@ -149,14 +155,6 @@ abstract class WallabagCoreTestCase extends WebTestCase
         return $this->getLoggedInUser()->getId();
     }
 
-    public function useTheme($theme)
-    {
-        $config = $this->getEntityManager()->getRepository(Config::class)->findOneByUser($this->getLoggedInUser());
-        $config->setTheme($theme);
-        $this->getEntityManager()->persist($config);
-        $this->getEntityManager()->flush();
-    }
-
     /**
      * Check if Redis is installed.
      * If not, mark test as skip.
@@ -164,7 +162,7 @@ abstract class WallabagCoreTestCase extends WebTestCase
     protected function checkRedis()
     {
         try {
-            $this->client->getContainer()->get('wallabag_core.redis.client')->connect();
+            $this->client->getContainer()->get(\Predis\Client::class)->connect();
         } catch (\Exception $e) {
             $this->markTestSkipped('Redis is not installed/activated');
         }

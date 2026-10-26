@@ -8,7 +8,7 @@ class ImportControllerTest extends WallabagCoreTestCase
 {
     public function testLogin()
     {
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $client->request('GET', '/import/');
 
@@ -19,11 +19,11 @@ class ImportControllerTest extends WallabagCoreTestCase
     public function testImportList()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/import/');
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
-        $this->assertSame(10, $crawler->filter('blockquote')->count());
+        $this->assertSame(14, $crawler->filter('blockquote')->count());
     }
 }

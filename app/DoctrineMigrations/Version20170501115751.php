@@ -2,6 +2,7 @@
 
 namespace Application\Migrations;
 
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Wallabag\CoreBundle\Doctrine\WallabagMigration;
 
@@ -10,7 +11,7 @@ use Wallabag\CoreBundle\Doctrine\WallabagMigration;
  */
 class Version20170501115751 extends WallabagMigration
 {
-    public function up(Schema $schema)
+    public function up(Schema $schema): void
     {
         $this->skipIf($schema->hasTable($this->getTable('site_credential')), 'It seems that you already played this migration.');
 
@@ -25,13 +26,13 @@ class Version20170501115751 extends WallabagMigration
         $table->setPrimaryKey(['id']);
         $table->addForeignKeyConstraint($this->getTable('user'), ['user_id'], ['id'], [], 'fk_user');
 
-        if ('postgresql' === $this->connection->getDatabasePlatform()->getName()) {
+        if ($this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform) {
             $schema->dropSequence('site_credential_id_seq');
             $schema->createSequence('site_credential_id_seq');
         }
     }
 
-    public function down(Schema $schema)
+    public function down(Schema $schema): void
     {
         $schema->dropTable($this->getTable('site_credential'));
     }

@@ -2,51 +2,76 @@
 
 namespace Wallabag\CoreBundle\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
 use Pagerfanta\Adapter\ArrayAdapter;
 use Pagerfanta\Exception\OutOfRangeCurrentPageException;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Wallabag\CoreBundle\Entity\Entry;
 use Wallabag\CoreBundle\Entity\Tag;
 use Wallabag\CoreBundle\Form\Type\NewTagType;
 use Wallabag\CoreBundle\Form\Type\RenameTagType;
+use Wallabag\CoreBundle\Helper\PreparePagerForEntries;
+use Wallabag\CoreBundle\Helper\Redirect;
+use Wallabag\CoreBundle\Helper\TagsAssigner;
+use Wallabag\CoreBundle\Repository\EntryRepository;
+use Wallabag\CoreBundle\Repository\TagRepository;
 
-class TagController extends Controller
+class TagController extends AbstractController
 {
+    private EntityManagerInterface $entityManager;
+    private TagsAssigner $tagsAssigner;
+    private Redirect $redirectHelper;
+
+    public function __construct(EntityManagerInterface $entityManager, TagsAssigner $tagsAssigner, Redirect $redirectHelper)
+    {
+        $this->entityManager = $entityManager;
+        $this->tagsAssigner = $tagsAssigner;
+        $this->redirectHelper = $redirectHelper;
+    }
+
     /**
      * @Route("/new-tag/{entry}", requirements={"entry" = "\d+"}, name="new_tag", methods={"POST"})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function addTagFormAction(Request $request, Entry $entry)
+    public function addTagFormAction(Request $request, Entry $entry, TranslatorInterface $translator)
     {
         $form = $this->createForm(NewTagType::class, new Tag());
         $form->handleRequest($request);
 
-        $tags = $form->get('label')->getData();
+        $tags = $form->get('label')->getData() ?? '';
         $tagsExploded = explode(',', $tags);
 
         // avoid too much tag to be added
-        if (\count($tagsExploded) >= 5 || \strlen($tags) >= NewTagType::MAX_LENGTH) {
+        if (\count($tagsExploded) >= NewTagType::MAX_TAGS || \strlen($tags) >= NewTagType::MAX_LENGTH) {
+            $message = $translator->trans('flashes.tag.notice.too_much_tags', [
+                '%tags%' => NewTagType::MAX_TAGS,
+                '%characters%' => NewTagType::MAX_LENGTH,
+            ]);
+            $this->addFlash('notice', $message);
+
             return $this->redirect($this->generateUrl('view', ['id' => $entry->getId()]));
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->checkUserAction($entry);
 
-            $this->get('wallabag_core.tags_assigner')->assignTagsToEntry(
+            $this->tagsAssigner->assignTagsToEntry(
                 $entry,
                 $form->get('label')->getData()
             );
 
-            $em = $this->getDoctrine()->getManager();
-            $em->persist($entry);
-            $em->flush();
+            $this->entityManager->persist($entry);
+            $this->entityManager->flush();
 
-            $this->get('session')->getFlashBag()->add(
+            $this->addFlash(
                 'notice',
                 'flashes.tag.notice.tag_added'
             );
@@ -54,7 +79,7 @@ class TagController extends Controller
             return $this->redirect($this->generateUrl('view', ['id' => $entry->getId()]));
         }
 
-        return $this->render('WallabagCoreBundle:Tag:new_form.html.twig', [
+        return $this->render('@WallabagCore/Tag/new_form.html.twig', [
             'form' => $form->createView(),
             'entry' => $entry,
         ]);
@@ -63,25 +88,28 @@ class TagController extends Controller
     /**
      * Removes tag from entry.
      *
-     * @Route("/remove-tag/{entry}/{tag}", requirements={"entry" = "\d+", "tag" = "\d+"}, name="remove_tag")
+     * @Route("/remove-tag/{entry}/{tag}", name="remove_tag", methods={"POST"}, requirements={"entry" = "\d+", "tag" = "\d+"})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
     public function removeTagFromEntry(Request $request, Entry $entry, Tag $tag)
     {
+        if (!$this->isCsrfTokenValid('remove-tag', $request->request->get('token'))) {
+            throw new BadRequestHttpException('Bad CSRF token.');
+        }
+
         $this->checkUserAction($entry);
 
         $entry->removeTag($tag);
-        $em = $this->getDoctrine()->getManager();
-        $em->flush();
+        $this->entityManager->flush();
 
         // remove orphan tag in case no entries are associated to it
         if (0 === \count($tag->getEntries())) {
-            $em->remove($tag);
-            $em->flush();
+            $this->entityManager->remove($tag);
+            $this->entityManager->flush();
         }
 
-        $redirectUrl = $this->get('wallabag_core.helper.redirect')->to($request->headers->get('referer'), '', true);
+        $redirectUrl = $this->redirectHelper->to($request->query->get('redirect'), true);
 
         return $this->redirect($redirectUrl);
     }
@@ -91,21 +119,19 @@ class TagController extends Controller
      *
      * @Route("/tag/list", name="tag")
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function showTagAction()
+    public function showTagAction(TagRepository $tagRepository, EntryRepository $entryRepository)
     {
-        $tags = $this->get('wallabag_core.tag_repository')
-            ->findAllFlatTagsWithNbEntries($this->getUser()->getId());
-        $nbEntriesUntagged = $this->get('wallabag_core.entry_repository')
-            ->countUntaggedEntriesByUser($this->getUser()->getId());
+        $tags = $tagRepository->findAllFlatTagsWithNbEntries($this->getUser()->getId());
+        $nbEntriesUntagged = $entryRepository->countUntaggedEntriesByUser($this->getUser()->getId());
 
         $renameForms = [];
         foreach ($tags as $tag) {
             $renameForms[$tag['id']] = $this->createForm(RenameTagType::class, new Tag())->createView();
         }
 
-        return $this->render('WallabagCoreBundle:Tag:tags.html.twig', [
+        return $this->render('@WallabagCore/Tag/tags.html.twig', [
             'tags' => $tags,
             'renameForms' => $renameForms,
             'nbEntriesUntagged' => $nbEntriesUntagged,
@@ -118,18 +144,18 @@ class TagController extends Controller
      * @Route("/tag/list/{slug}/{page}", name="tag_entries", defaults={"page" = "1"})
      * @ParamConverter("tag", options={"mapping": {"slug": "slug"}})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function showEntriesForTagAction(Tag $tag, $page, Request $request)
+    public function showEntriesForTagAction(Tag $tag, EntryRepository $entryRepository, PreparePagerForEntries $preparePagerForEntries, $page, Request $request)
     {
-        $entriesByTag = $this->get('wallabag_core.entry_repository')->findAllByTagId(
+        $entriesByTag = $entryRepository->findAllByTagId(
             $this->getUser()->getId(),
             $tag->getId()
         );
 
         $pagerAdapter = new ArrayAdapter($entriesByTag);
 
-        $entries = $this->get('wallabag_core.helper.prepare_pager_for_entries')->prepare($pagerAdapter);
+        $entries = $preparePagerForEntries->prepare($pagerAdapter);
 
         try {
             $entries->setCurrentPage($page);
@@ -142,7 +168,7 @@ class TagController extends Controller
             }
         }
 
-        return $this->render('WallabagCoreBundle:Entry:entries.html.twig', [
+        return $this->render('@WallabagCore/Entry/entries.html.twig', [
             'form' => null,
             'entries' => $entries,
             'currentPage' => $page,
@@ -157,14 +183,14 @@ class TagController extends Controller
      * @Route("/tag/rename/{slug}", name="tag_rename")
      * @ParamConverter("tag", options={"mapping": {"slug": "slug"}})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function renameTagAction(Tag $tag, Request $request)
+    public function renameTagAction(Tag $tag, Request $request, TagRepository $tagRepository, EntryRepository $entryRepository)
     {
         $form = $this->createForm(RenameTagType::class, new Tag());
         $form->handleRequest($request);
 
-        $redirectUrl = $this->get('wallabag_core.helper.redirect')->to($request->headers->get('referer'), '', true);
+        $redirectUrl = $this->redirectHelper->to($request->query->get('redirect'), true);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $newTag = new Tag();
@@ -174,18 +200,18 @@ class TagController extends Controller
                 return $this->redirect($redirectUrl);
             }
 
-            $tagFromRepo = $this->get('wallabag_core.tag_repository')->findOneByLabel($newTag->getLabel());
+            $tagFromRepo = $tagRepository->findOneByLabel($newTag->getLabel());
 
             if (null !== $tagFromRepo) {
                 $newTag = $tagFromRepo;
             }
 
-            $entries = $this->get('wallabag_core.entry_repository')->findAllByTagId(
+            $entries = $entryRepository->findAllByTagId(
                 $this->getUser()->getId(),
                 $tag->getId()
             );
             foreach ($entries as $entry) {
-                $this->get('wallabag_core.tags_assigner')->assignTagsToEntry(
+                $this->tagsAssigner->assignTagsToEntry(
                     $entry,
                     $newTag->getLabel(),
                     [$newTag]
@@ -193,9 +219,9 @@ class TagController extends Controller
                 $entry->removeTag($tag);
             }
 
-            $this->getDoctrine()->getManager()->flush();
+            $this->entityManager->flush();
 
-            $this->get('session')->getFlashBag()->add(
+            $this->addFlash(
                 'notice',
                 'flashes.tag.notice.tag_renamed'
             );
@@ -207,32 +233,68 @@ class TagController extends Controller
     /**
      * Tag search results with the current search term.
      *
-     * @Route("/tag/search/{filter}", name="tag_this_search")
+     * @Route("/tag/search/{filter}", name="tag_this_search", methods={"POST"})
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function tagThisSearchAction($filter, Request $request)
+    public function tagThisSearchAction($filter, Request $request, EntryRepository $entryRepository)
     {
+        if (!$this->isCsrfTokenValid('tag-this-search', $request->request->get('token'))) {
+            throw new BadRequestHttpException('Bad CSRF token.');
+        }
+
         $currentRoute = $request->query->has('currentRoute') ? $request->query->get('currentRoute') : '';
 
         /** @var QueryBuilder $qb */
-        $qb = $this->get('wallabag_core.entry_repository')->getBuilderForSearchByUser($this->getUser()->getId(), $filter, $currentRoute);
-        $em = $this->getDoctrine()->getManager();
+        $qb = $entryRepository->getBuilderForSearchByUser($this->getUser()->getId(), $filter, $currentRoute);
 
         $entries = $qb->getQuery()->getResult();
 
         foreach ($entries as $entry) {
-            $this->get('wallabag_core.tags_assigner')->assignTagsToEntry(
+            $this->tagsAssigner->assignTagsToEntry(
                 $entry,
                 $filter
             );
 
-            $em->persist($entry);
+            // check to avoid duplicate tags creation
+            foreach ($this->entityManager->getUnitOfWork()->getScheduledEntityInsertions() as $entity) {
+                if ($entity instanceof Tag && strtolower($entity->getLabel()) === strtolower($filter)) {
+                    continue 2;
+                }
+                $this->entityManager->persist($entry);
+            }
+            $this->entityManager->flush();
         }
 
-        $em->flush();
+        return $this->redirect($this->redirectHelper->to($request->query->get('redirect'), true));
+    }
 
-        return $this->redirect($this->get('wallabag_core.helper.redirect')->to($request->headers->get('referer'), '', true));
+    /**
+     * Delete a given tag for the current user.
+     *
+     * @Route("/tag/delete/{slug}", name="tag_delete", methods={"POST"})
+     * @ParamConverter("tag", options={"mapping": {"slug": "slug"}})
+     *
+     * @return Response
+     */
+    public function removeTagAction(Tag $tag, Request $request, EntryRepository $entryRepository)
+    {
+        if (!$this->isCsrfTokenValid('tag-delete', $request->request->get('token'))) {
+            throw new BadRequestHttpException('Bad CSRF token.');
+        }
+
+        foreach ($tag->getEntriesByUserId($this->getUser()->getId()) as $entry) {
+            $entryRepository->removeTag($this->getUser()->getId(), $tag);
+        }
+
+        // remove orphan tag in case no entries are associated to it
+        if (0 === \count($tag->getEntries())) {
+            $this->entityManager->remove($tag);
+            $this->entityManager->flush();
+        }
+        $redirectUrl = $this->redirectHelper->to($request->query->get('redirect'), true);
+
+        return $this->redirect($redirectUrl);
     }
 
     /**

@@ -2,15 +2,23 @@
 
 namespace Wallabag\AnnotationBundle\Repository;
 
-use Doctrine\ORM\EntityRepository;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
 use Wallabag\AnnotationBundle\Entity\Annotation;
 
 /**
  * AnnotationRepository.
+ *
+ * @method Annotation|null findOneById(int $id)
  */
-class AnnotationRepository extends EntityRepository
+class AnnotationRepository extends ServiceEntityRepository
 {
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Annotation::class);
+    }
+
     /**
      * Retrieves all annotations for a user.
      *
@@ -52,11 +60,11 @@ class AnnotationRepository extends EntityRepository
     public function findOneByIdAndUserId($annotationId, $userId)
     {
         return $this->createQueryBuilder('a')
-                    ->where('a.id = :annotationId')->setParameter('annotationId', $annotationId)
-                    ->andWhere('a.user = :userId')->setParameter('userId', $userId)
-                    ->setMaxResults(1)
-                    ->getQuery()
-                    ->getOneOrNullResult();
+            ->where('a.id = :annotationId')->setParameter('annotationId', $annotationId)
+            ->andWhere('a.user = :userId')->setParameter('userId', $userId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**
@@ -82,7 +90,7 @@ class AnnotationRepository extends EntityRepository
      *
      * @param int $entryId
      *
-     * @return array
+     * @return Annotation|null
      */
     public function findLastAnnotationByUserId($entryId, $userId)
     {
@@ -142,6 +150,12 @@ class AnnotationRepository extends EntityRepository
             ->andWhere('e.isArchived = true')
             ->getQuery()
             ->getResult();
+    }
+
+    public function getCountBuilderByUser($userId = null)
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.user = :userId')->setParameter('userId', $userId);
     }
 
     /**

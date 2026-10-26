@@ -2,17 +2,27 @@
 
 namespace Wallabag\CoreBundle\Repository;
 
-use Doctrine\ORM\EntityRepository;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\NoResultException;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\Persistence\ManagerRegistry;
 use Pagerfanta\Doctrine\ORM\QueryAdapter as DoctrineORMAdapter;
 use Pagerfanta\Pagerfanta;
 use Wallabag\CoreBundle\Entity\Entry;
 use Wallabag\CoreBundle\Entity\Tag;
 use Wallabag\CoreBundle\Helper\UrlHasher;
 
-class EntryRepository extends EntityRepository
+/**
+ * @method Entry[]    findById(int $id)
+ * @method Entry|null findOneByUser(int $userId)
+ */
+class EntryRepository extends ServiceEntityRepository
 {
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Entry::class);
+    }
+
     /**
      * Retrieves all entries for a user.
      *
@@ -28,6 +38,20 @@ class EntryRepository extends EntityRepository
     }
 
     /**
+     * Retrieves all entries count for a user.
+     *
+     * @param int $userId
+     *
+     * @return QueryBuilder
+     */
+    public function getCountBuilderForAllByUser($userId)
+    {
+        return $this
+            ->getQueryBuilderByUser($userId)
+        ;
+    }
+
+    /**
      * Retrieves unread entries for a user.
      *
      * @param int $userId
@@ -38,6 +62,21 @@ class EntryRepository extends EntityRepository
     {
         return $this
             ->getSortedQueryBuilderByUser($userId)
+            ->andWhere('e.isArchived = false')
+            ;
+    }
+
+    /**
+     * Retrieves unread entries count for a user.
+     *
+     * @param int $userId
+     *
+     * @return QueryBuilder
+     */
+    public function getCountBuilderForUnreadByUser($userId)
+    {
+        return $this
+            ->getQueryBuilderByUser($userId)
             ->andWhere('e.isArchived = false')
             ;
     }
@@ -85,6 +124,21 @@ class EntryRepository extends EntityRepository
     }
 
     /**
+     * Retrieves read entries count for a user.
+     *
+     * @param int $userId
+     *
+     * @return QueryBuilder
+     */
+    public function getCountBuilderForArchiveByUser($userId)
+    {
+        return $this
+            ->getQueryBuilderByUser($userId)
+            ->andWhere('e.isArchived = true')
+        ;
+    }
+
+    /**
      * Retrieves starred entries for a user.
      *
      * @param int $userId
@@ -95,6 +149,21 @@ class EntryRepository extends EntityRepository
     {
         return $this
             ->getSortedQueryBuilderByUser($userId, 'starredAt', 'desc')
+            ->andWhere('e.isStarred = true')
+        ;
+    }
+
+    /**
+     * Retrieves starred entries count for a user.
+     *
+     * @param int $userId
+     *
+     * @return QueryBuilder
+     */
+    public function getCountBuilderForStarredByUser($userId)
+    {
+        return $this
+            ->getQueryBuilderByUser($userId)
             ->andWhere('e.isStarred = true')
         ;
     }
@@ -197,14 +266,15 @@ class EntryRepository extends EntityRepository
      * @param string $order
      * @param int    $since
      * @param string $tags
-     * @param string $detail     'metadata' or 'full'. Include content field if 'full'
+     * @param string $detail         'metadata' or 'full'. Include content field if 'full'
      * @param string $domainName
+     * @param bool   $hasAnnotations
      *
      * @todo Breaking change: replace default detail=full by detail=metadata in a future version
      *
      * @return Pagerfanta
      */
-    public function findEntries($userId, $isArchived = null, $isStarred = null, $isPublic = null, $sort = 'created', $order = 'asc', $since = 0, $tags = '', $detail = 'full', $domainName = '')
+    public function findEntries($userId, $isArchived = null, $isStarred = null, $isPublic = null, $sort = 'created', $order = 'asc', $since = 0, $tags = '', $detail = 'full', $domainName = '', $hasAnnotations = null)
     {
         if (!\in_array(strtolower($detail), ['full', 'metadata'], true)) {
             throw new \Exception('Detail "' . $detail . '" parameter is wrong, allowed: full or metadata');
@@ -261,6 +331,16 @@ class EntryRepository extends EntityRepository
 
         if (\is_string($domainName) && '' !== $domainName) {
             $qb->andWhere('e.domainName = :domainName')->setParameter('domainName', $domainName);
+        }
+
+        if (null !== $hasAnnotations) {
+            if ($hasAnnotations) {
+                $qb->leftJoin('e.annotations', 'a')
+                   ->andWhere('a.id IS NOT NULL');
+            } else {
+                $qb->leftJoin('e.annotations', 'a')
+                   ->andWhere('a.id IS NULL');
+            }
         }
 
         if (!\in_array(strtolower($order), ['asc', 'desc'], true)) {
@@ -373,7 +453,7 @@ class EntryRepository extends EntityRepository
      * Remove tags from all user entries.
      *
      * @param int        $userId
-     * @param Array<Tag> $tags
+     * @param array<Tag> $tags
      */
     public function removeTags($userId, $tags)
     {
@@ -548,6 +628,23 @@ class EntryRepository extends EntityRepository
 
         if (null !== $userId) {
             $qb->where('e.user = :userid')->setParameter(':userid', $userId);
+        }
+
+        return $qb->getQuery()->getArrayResult();
+    }
+
+    /**
+     * @param int $userId
+     *
+     * @return array
+     */
+    public function findEmptyEntriesIdByUserId($userId = null)
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->select('e.id');
+
+        if (null !== $userId) {
+            $qb->where('e.user = :userid AND e.content IS NULL')->setParameter(':userid', $userId);
         }
 
         return $qb->getQuery()->getArrayResult();

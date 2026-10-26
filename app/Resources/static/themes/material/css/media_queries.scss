@@ -10,7 +10,7 @@
 
 @media only screen and (min-width: 992px) {
   nav,
-  body:not(.entry):not(.login) main,
+  .index main,
   footer {
     padding-left: 240px;
   }
@@ -21,7 +21,7 @@
 }
 
 @media screen and (min-width: 993px) {
-  .entry #content {
+  .entry main div#content {
     padding-left: 70px;
   }
 }

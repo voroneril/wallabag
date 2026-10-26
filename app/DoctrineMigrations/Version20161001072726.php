@@ -3,6 +3,9 @@
 namespace Application\Migrations;
 
 use Doctrine\DBAL\Migrations\SkipMigrationException;
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\SqlitePlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Wallabag\CoreBundle\Doctrine\WallabagMigration;
 
@@ -11,26 +14,27 @@ use Wallabag\CoreBundle\Doctrine\WallabagMigration;
  */
 class Version20161001072726 extends WallabagMigration
 {
-    public function up(Schema $schema)
+    public function up(Schema $schema): void
     {
-        $this->skipIf('sqlite' === $this->connection->getDatabasePlatform()->getName(), 'Migration can only be executed safely on \'mysql\' or \'postgresql\'.');
+        $platform = $this->connection->getDatabasePlatform();
+
+        $this->skipIf($platform instanceof SqlitePlatform, 'Migration can only be executed safely on \'mysql\' or \'postgresql\'.');
 
         // remove all FK from entry_tag
-        switch ($this->connection->getDatabasePlatform()->getName()) {
-            case 'mysql':
+        switch (true) {
+            case $platform instanceof MySQLPlatform:
                 $query = $this->connection->query("
                     SELECT CONSTRAINT_NAME
                     FROM information_schema.key_column_usage
                     WHERE TABLE_NAME = '" . $this->getTable('entry_tag', WallabagMigration::UN_ESCAPED_TABLE) . "' AND CONSTRAINT_NAME LIKE 'FK_%'
                     AND TABLE_SCHEMA = '" . $this->connection->getDatabase() . "'"
                 );
-                $query->execute();
 
-                foreach ($query->fetchAll() as $fk) {
+                foreach ($query->fetchAllAssociative() as $fk) {
                     $this->addSql('ALTER TABLE ' . $this->getTable('entry_tag') . ' DROP FOREIGN KEY ' . $fk['CONSTRAINT_NAME']);
                 }
                 break;
-            case 'postgresql':
+            case $platform instanceof PostgreSQLPlatform:
                 // http://dba.stackexchange.com/questions/36979/retrieving-all-pk-and-fk
                 $query = $this->connection->query("
                     SELECT conrelid::regclass AS table_from
@@ -42,9 +46,8 @@ class Version20161001072726 extends WallabagMigration
                     AND    conrelid::regclass::text = '" . $this->getTable('entry_tag', WallabagMigration::UN_ESCAPED_TABLE) . "'
                     AND    n.nspname = 'public';"
                 );
-                $query->execute();
 
-                foreach ($query->fetchAll() as $fk) {
+                foreach ($query->fetchAllAssociative() as $fk) {
                     $this->addSql('ALTER TABLE ' . $this->getTable('entry_tag') . ' DROP CONSTRAINT ' . $fk['conname']);
                 }
                 break;
@@ -55,8 +58,8 @@ class Version20161001072726 extends WallabagMigration
 
         // remove entry FK from annotation
 
-        switch ($this->connection->getDatabasePlatform()->getName()) {
-            case 'mysql':
+        switch (true) {
+            case $platform instanceof MySQLPlatform:
                 $query = $this->connection->query("
                     SELECT CONSTRAINT_NAME
                     FROM information_schema.key_column_usage
@@ -65,13 +68,12 @@ class Version20161001072726 extends WallabagMigration
                     AND COLUMN_NAME = 'entry_id'
                     AND TABLE_SCHEMA = '" . $this->connection->getDatabase() . "'"
                 );
-                $query->execute();
 
-                foreach ($query->fetchAll() as $fk) {
+                foreach ($query->fetchAllAssociative() as $fk) {
                     $this->addSql('ALTER TABLE ' . $this->getTable('annotation') . ' DROP FOREIGN KEY ' . $fk['CONSTRAINT_NAME']);
                 }
                 break;
-            case 'postgresql':
+            case $platform instanceof PostgreSQLPlatform:
                 // http://dba.stackexchange.com/questions/36979/retrieving-all-pk-and-fk
                 $query = $this->connection->query("
                     SELECT conrelid::regclass AS table_from
@@ -84,9 +86,8 @@ class Version20161001072726 extends WallabagMigration
                     AND    n.nspname = 'public'
                     AND    pg_get_constraintdef(c.oid) LIKE '%entry_id%';"
                 );
-                $query->execute();
 
-                foreach ($query->fetchAll() as $fk) {
+                foreach ($query->fetchAllAssociative() as $fk) {
                     $this->addSql('ALTER TABLE ' . $this->getTable('annotation') . ' DROP CONSTRAINT ' . $fk['conname']);
                 }
                 break;
@@ -95,7 +96,7 @@ class Version20161001072726 extends WallabagMigration
         $this->addSql('ALTER TABLE ' . $this->getTable('annotation') . ' ADD CONSTRAINT FK_annotation_entry FOREIGN KEY (entry_id) REFERENCES ' . $this->getTable('entry') . ' (id) ON DELETE CASCADE');
     }
 
-    public function down(Schema $schema)
+    public function down(Schema $schema): void
     {
         throw new SkipMigrationException('Too complex ...');
     }

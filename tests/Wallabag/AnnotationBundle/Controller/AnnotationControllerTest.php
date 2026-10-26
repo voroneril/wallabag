@@ -2,9 +2,11 @@
 
 namespace Tests\Wallabag\AnnotationBundle\Controller;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Tests\Wallabag\AnnotationBundle\WallabagAnnotationTestCase;
 use Wallabag\AnnotationBundle\Entity\Annotation;
 use Wallabag\CoreBundle\Entity\Entry;
+use Wallabag\UserBundle\Entity\User;
 
 class AnnotationControllerTest extends WallabagAnnotationTestCase
 {
@@ -26,13 +28,13 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
      */
     public function testGetAnnotations($prefixUrl)
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('admin');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findByUrlAndUserId('http://0.0.0.0/entry1', $user->getId());
 
         if ('annotations' === $prefixUrl) {
@@ -54,10 +56,10 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
         $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
 
         $otherUser = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('bob');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findByUrlAndUserId('http://0.0.0.0/entry3', $otherUser->getId());
 
         if ('annotations' === $prefixUrl) {
@@ -76,10 +78,10 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
      */
     public function testSetAnnotation($prefixUrl)
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('admin');
 
         if ('annotations' === $prefixUrl) {
@@ -88,7 +90,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
         /** @var Entry $entry */
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $headers = ['CONTENT_TYPE' => 'application/json'];
@@ -112,7 +114,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
         /** @var Annotation $annotation */
         $annotation = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findLastAnnotationByUserId($entry->getId(), $user->getId());
 
         $this->assertSame('my annotation', $annotation->getText());
@@ -120,11 +122,11 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
     public function testAllowEmptyQuote()
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         /** @var Entry $entry */
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $headers = ['CONTENT_TYPE' => 'application/json'];
@@ -149,11 +151,11 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
     public function testAllowOmmittedQuote()
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         /** @var Entry $entry */
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $headers = ['CONTENT_TYPE' => 'application/json'];
@@ -180,7 +182,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
      */
     public function testSetAnnotationWithQuoteTooLong($prefixUrl)
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         if ('annotations' === $prefixUrl) {
             $this->logInAs('admin');
@@ -188,7 +190,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
         /** @var Entry $entry */
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $longQuote = str_repeat('a', 10001);
@@ -210,13 +212,13 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
      */
     public function testEditAnnotation($prefixUrl)
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('admin');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $annotation = new Annotation($user);
@@ -243,7 +245,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
 
         /** @var Annotation $annotationUpdated */
         $annotationUpdated = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findOneById($annotation->getId());
         $this->assertSame('a modified annotation', $annotationUpdated->getText());
 
@@ -259,13 +261,13 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
         $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
 
         $otherUser = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('bob');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findByUrlAndUserId('http://0.0.0.0/entry3', $otherUser->getId());
         $annotation = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findLastAnnotationByUserId($entry->getId(), $otherUser->getId());
 
         $headers = ['CONTENT_TYPE' => 'application/json'];
@@ -281,13 +283,13 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
      */
     public function testDeleteAnnotation($prefixUrl)
     {
-        $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $this->client->getContainer()->get(EntityManagerInterface::class);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('admin');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         $annotation = new Annotation($user);
@@ -314,7 +316,7 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
         $this->assertSame('This is my annotation /o/', $content['text']);
 
         $annotationDeleted = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findOneById($annotation->getId());
 
         $this->assertNull($annotationDeleted);
@@ -328,20 +330,20 @@ class AnnotationControllerTest extends WallabagAnnotationTestCase
         $em = $this->client->getContainer()->get('doctrine.orm.entity_manager');
 
         $otherUser = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('bob');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findByUrlAndUserId('http://0.0.0.0/entry3', $otherUser->getId());
         $annotation = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findLastAnnotationByUserId($entry->getId(), $otherUser->getId());
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUserName('admin');
         $entry = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findOneByUsernameAndNotArchived('admin');
 
         if ('annotations' === $prefixUrl) {

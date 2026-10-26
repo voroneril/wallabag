@@ -13,7 +13,6 @@ class AppKernel extends Kernel
             new Symfony\Bundle\SecurityBundle\SecurityBundle(),
             new Symfony\Bundle\TwigBundle\TwigBundle(),
             new Symfony\Bundle\MonologBundle\MonologBundle(),
-            new Symfony\Bundle\SwiftmailerBundle\SwiftmailerBundle(),
             new Doctrine\Bundle\DoctrineBundle\DoctrineBundle(),
             new Sensio\Bundle\FrameworkExtraBundle\SensioFrameworkExtraBundle(),
             new FOS\RestBundle\FOSRestBundle(),
@@ -21,7 +20,6 @@ class AppKernel extends Kernel
             new JMS\SerializerBundle\JMSSerializerBundle(),
             new Nelmio\ApiDocBundle\NelmioApiDocBundle(),
             new Nelmio\CorsBundle\NelmioCorsBundle(),
-            new Liip\ThemeBundle\LiipThemeBundle(),
             new Bazinga\Bundle\HateoasBundle\BazingaHateoasBundle(),
             new Lexik\Bundle\FormFilterBundle\LexikFormFilterBundle(),
             new FOS\OAuthServerBundle\FOSOAuthServerBundle(),
@@ -36,6 +34,7 @@ class AppKernel extends Kernel
             new OldSound\RabbitMqBundle\OldSoundRabbitMqBundle(),
             new Http\HttplugBundle\HttplugBundle(),
             new Sentry\SentryBundle\SentryBundle(),
+            new Twig\Extra\TwigExtraBundle\TwigExtraBundle(),
 
             // wallabag bundles
             new Wallabag\CoreBundle\WallabagCoreBundle(),
@@ -43,13 +42,11 @@ class AppKernel extends Kernel
             new Wallabag\UserBundle\WallabagUserBundle(),
             new Wallabag\ImportBundle\WallabagImportBundle(),
             new Wallabag\AnnotationBundle\WallabagAnnotationBundle(),
-            new Nicosomb\WallabagWebarchiveBundle\NicosombWallabagWebarchiveBundle(),
         ];
 
         if (in_array($this->getEnvironment(), ['dev', 'test'], true)) {
             $bundles[] = new Symfony\Bundle\DebugBundle\DebugBundle();
             $bundles[] = new Symfony\Bundle\WebProfilerBundle\WebProfilerBundle();
-            $bundles[] = new Sensio\Bundle\DistributionBundle\SensioDistributionBundle();
             $bundles[] = new Doctrine\Bundle\FixturesBundle\DoctrineFixturesBundle();
 
             if ('test' === $this->getEnvironment()) {
@@ -65,11 +62,6 @@ class AppKernel extends Kernel
         return $bundles;
     }
 
-    public function getRootDir()
-    {
-        return __DIR__;
-    }
-
     public function getCacheDir()
     {
         return dirname(__DIR__) . '/var/cache/' . $this->getEnvironment();
@@ -82,7 +74,7 @@ class AppKernel extends Kernel
 
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
-        $loader->load($this->getRootDir() . '/config/config_' . $this->getEnvironment() . '.yml');
+        $loader->load($this->getProjectDir() . '/app/config/config_' . $this->getEnvironment() . '.yml');
 
         $loader->load(function ($container) {
             if ($container->getParameter('use_webpack_dev_server')) {

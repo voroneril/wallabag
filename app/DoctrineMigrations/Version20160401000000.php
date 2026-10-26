@@ -2,6 +2,9 @@
 
 namespace Application\Migrations;
 
+use Doctrine\DBAL\Platforms\MySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\SqlitePlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Wallabag\CoreBundle\Doctrine\WallabagMigration;
 
@@ -10,12 +13,14 @@ use Wallabag\CoreBundle\Doctrine\WallabagMigration;
  */
 class Version20160401000000 extends WallabagMigration
 {
-    public function up(Schema $schema)
+    public function up(Schema $schema): void
     {
         $this->skipIf($schema->hasTable($this->getTable('entry')), 'Database already initialized');
 
-        switch ($this->connection->getDatabasePlatform()->getName()) {
-            case 'sqlite':
+        $platform = $this->connection->getDatabasePlatform();
+
+        switch (true) {
+            case $platform instanceof SqlitePlatform:
                 $sql = <<<SQL
 CREATE TABLE {$this->getTable('craue_config_setting')} (name VARCHAR(255) NOT NULL, value VARCHAR(255) DEFAULT NULL, section VARCHAR(255) DEFAULT NULL, PRIMARY KEY(name));
 CREATE UNIQUE INDEX UNIQ_5D9649505E237E06 ON {$this->getTable('craue_config_setting')} (name);
@@ -58,7 +63,7 @@ SQL
                 }
 
                 break;
-            case 'mysql':
+            case $platform instanceof MySQLPlatform:
                 $sql = <<<SQL
 CREATE TABLE {$this->getTable('craue_config_setting')} (name VARCHAR(255) NOT NULL, value VARCHAR(255) DEFAULT NULL, section VARCHAR(255) DEFAULT NULL, UNIQUE INDEX UNIQ_5D9649505E237E06 (name), PRIMARY KEY(name)) DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE = InnoDB;
 CREATE TABLE {$this->getTable('entry')} (id INT AUTO_INCREMENT NOT NULL, user_id INT DEFAULT NULL, title LONGTEXT DEFAULT NULL, url LONGTEXT DEFAULT NULL, is_archived TINYINT(1) NOT NULL, is_starred TINYINT(1) NOT NULL, content LONGTEXT DEFAULT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, mimetype LONGTEXT DEFAULT NULL, language LONGTEXT DEFAULT NULL, reading_time INT DEFAULT NULL, domain_name LONGTEXT DEFAULT NULL, preview_picture LONGTEXT DEFAULT NULL, is_public TINYINT(1) DEFAULT '0', INDEX IDX_F4D18282A76ED395 (user_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE = InnoDB;
@@ -91,7 +96,7 @@ SQL
                     $this->addSql($query);
                 }
                 break;
-            case 'postgresql':
+            case $platform instanceof PostgreSQLPlatform:
                 $sql = <<<SQL
 CREATE TABLE {$this->getTable('craue_config_setting')} (name VARCHAR(255) NOT NULL, value VARCHAR(255) DEFAULT NULL, section VARCHAR(255) DEFAULT NULL, PRIMARY KEY(name));
 CREATE UNIQUE INDEX UNIQ_5D9649505E237E06 ON {$this->getTable('craue_config_setting')} (name);
@@ -164,7 +169,7 @@ SQL
         }
     }
 
-    public function down(Schema $schema)
+    public function down(Schema $schema): void
     {
         $this->addSql("DROP TABLE {$this->getTable('craue_config_setting')}");
         $this->addSql("DROP TABLE {$this->getTable('tagging_rule')}");

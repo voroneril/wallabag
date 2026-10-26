@@ -1,6 +1,6 @@
 wallabag_core:
-    version: 2.5.4
-    paypal_url: "https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9UBA65LG3FX9Y&lc=gb"
+    version: 2.6.14
+    paypal_url: "https://liberapay.com/wallabag/donate"
     languages:
         en: 'English'
         fr: 'Français'
@@ -24,13 +24,13 @@ wallabag_core:
         cs: 'Čeština'
         el: 'Ελληνικά'
     items_on_page: 12
-    theme: material
     language: '%locale%'
     rss_limit: 50
     reading_speed: 200
     cache_lifetime: 10
     action_mark_as_read: 1
     list_mode: 0
+    display_thumbnails: 1
     fetching_error_message_title: 'No title found'
     fetching_error_message: |
         wallabag can't retrieve contents for this article. Please <a href="https://doc.wallabag.org/en/user/errors_during_fetching.html#how-can-i-help-to-fix-that">troubleshoot this issue</a>.
@@ -39,10 +39,6 @@ wallabag_core:
     default_internal_settings:
         -
             name: share_public
-            value: 1
-            section: entry
-        -
-            name: carrot
             value: 1
             section: entry
         -
@@ -66,16 +62,8 @@ wallabag_core:
             value: 1
             section: entry
         -
-            name: share_scuttle
-            value: 1
-            section: entry
-        -
             name: shaarli_url
             value: https://myshaarli.com
-            section: entry
-        -
-            name: scuttle_url
-            value: https://scuttle.org
             section: entry
         -
             name: share_mail
@@ -178,9 +166,12 @@ wallabag_core:
         -
             rule: _all ~ "https?://www\.lemonde\.fr/tiny.*"
 
-wallabag_user:
-    registration_enabled: "%fosuser_registration%"
-
 wallabag_import:
-    allow_mimetypes: ['application/octet-stream', 'application/json', 'text/plain', 'text/csv']
+    allow_mimetypes:
+        - 'application/octet-stream'
+        - 'application/json'
+        - 'text/plain'
+        - 'text/csv'
+        - 'text/html'
+        - 'application/vnd.ms-excel'
     resource_dir: "%kernel.project_dir%/web/uploads/import"

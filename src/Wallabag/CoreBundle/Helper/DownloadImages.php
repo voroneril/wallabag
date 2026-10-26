@@ -7,33 +7,35 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Http\Client\Common\HttpMethodsClient;
 use Http\Client\Common\Plugin\ErrorPlugin;
+use Http\Client\Common\Plugin\RedirectPlugin;
 use Http\Client\Common\PluginClient;
-use Http\Client\HttpClient;
-use Http\Discovery\MessageFactoryDiscovery;
-use Http\Message\MessageFactory;
+use Http\Discovery\Psr17FactoryDiscovery;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Finder\Finder;
-use Symfony\Component\HttpFoundation\File\MimeType\MimeTypeExtensionGuesser;
+use Symfony\Component\Mime\MimeTypes;
 
 class DownloadImages
 {
-    const REGENERATE_PICTURES_QUALITY = 80;
+    public const REGENERATE_PICTURES_QUALITY = 80;
 
     private $client;
     private $baseFolder;
     private $logger;
-    private $mimeGuesser;
+    private $mimeTypes;
     private $wallabagUrl;
 
-    public function __construct(HttpClient $client, $baseFolder, $wallabagUrl, LoggerInterface $logger, MessageFactory $messageFactory = null)
+    public function __construct(ClientInterface $client, $baseFolder, $wallabagUrl, LoggerInterface $logger, RequestFactoryInterface $requestFactory = null, StreamFactoryInterface $streamFactory = null)
     {
-        $this->client = new HttpMethodsClient(new PluginClient($client, [new ErrorPlugin()]), $messageFactory ?: MessageFactoryDiscovery::find());
+        $this->client = new HttpMethodsClient(new PluginClient($client, [new ErrorPlugin(), new RedirectPlugin()]), $requestFactory ?: Psr17FactoryDiscovery::findRequestFactory(), $streamFactory ?: Psr17FactoryDiscovery::findStreamFactory());
         $this->baseFolder = $baseFolder;
         $this->wallabagUrl = rtrim($wallabagUrl, '/');
         $this->logger = $logger;
-        $this->mimeGuesser = new MimeTypeExtensionGuesser();
+        $this->mimeTypes = new MimeTypes();
 
         $this->setFolder();
     }
@@ -86,12 +88,14 @@ class DownloadImages
                 continue;
             }
 
-            // if image contains "&" and we can't find it in the html it might be because it's encoded as &amp;
-            if (false !== stripos($image, '&') && false === stripos($html, $image)) {
-                $image = str_replace('&', '&amp;', $image);
-            }
-
             $html = str_replace($image, $newImage, $html);
+            // if image contains "&" and we can't find it in the html it might be because it's encoded as &amp; or unicode
+            if (false !== stripos($image, '&') && false === stripos($html, $image)) {
+                $imageAmp = str_replace('&', '&amp;', $image);
+                $html = str_replace($imageAmp, $newImage, $html);
+                $imageUnicode = str_replace('&', '&#038;', $image);
+                $html = str_replace($imageUnicode, $newImage, $html);
+            }
         }
 
         return $html;
@@ -189,7 +193,7 @@ class DownloadImages
         switch ($ext) {
             case 'gif':
                 // use Imagick if available to keep GIF animation
-                if (class_exists('\\Imagick')) {
+                if (class_exists(\Imagick::class)) {
                     try {
                         $imagick = new \Imagick();
                         $imagick->readImageBlob($res->getBody());
@@ -355,7 +359,7 @@ class DownloadImages
      */
     private function getExtensionFromResponse(ResponseInterface $res, $imagePath)
     {
-        $ext = $this->mimeGuesser->guess(current($res->getHeader('content-type')));
+        $ext = current($this->mimeTypes->getExtensions(current($res->getHeader('content-type'))));
         $this->logger->debug('DownloadImages: Checking extension', ['ext' => $ext, 'header' => $res->getHeader('content-type')]);
 
         // ok header doesn't have the extension, try a different way

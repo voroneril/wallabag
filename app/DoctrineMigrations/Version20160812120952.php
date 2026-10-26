@@ -2,6 +2,7 @@
 
 namespace Application\Migrations;
 
+use Doctrine\DBAL\Platforms\SqlitePlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Wallabag\CoreBundle\Doctrine\WallabagMigration;
 
@@ -10,12 +11,12 @@ use Wallabag\CoreBundle\Doctrine\WallabagMigration;
  */
 class Version20160812120952 extends WallabagMigration
 {
-    public function up(Schema $schema)
+    public function up(Schema $schema): void
     {
         $clientsTable = $schema->getTable($this->getTable('oauth2_clients'));
         $this->skipIf($clientsTable->hasColumn('name'), 'It seems that you already played this migration.');
 
-        if ('sqlite' === $this->connection->getDatabasePlatform()->getName()) {
+        if ($this->connection->getDatabasePlatform() instanceof SqlitePlatform) {
             // Can't use $clientsTable->addColumn('name', 'blob');
             // because of the error:
             // SQLSTATE[HY000]: General error: 1 Cannot add a NOT NULL column with default value NULL
@@ -31,11 +32,11 @@ class Version20160812120952 extends WallabagMigration
         }
     }
 
-    public function down(Schema $schema)
+    public function down(Schema $schema): void
     {
         $clientsTable = $schema->getTable($this->getTable('oauth2_clients'));
 
-        if ('sqlite' === $this->connection->getDatabasePlatform()->getName()) {
+        if ($this->connection->getDatabasePlatform() instanceof SqlitePlatform) {
             $databaseTablePrefix = $this->container->getParameter('database_table_prefix');
             $this->addSql('DROP INDEX IDX_635D765EA76ED395');
             $this->addSql('CREATE TEMPORARY TABLE __temp__' . $databaseTablePrefix . 'oauth2_clients AS SELECT id, random_id, redirect_uris, secret, allowed_grant_types FROM ' . $databaseTablePrefix . 'oauth2_clients');

@@ -2,34 +2,35 @@
 
 namespace Wallabag\CoreBundle\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Wallabag\CoreBundle\Helper\EntriesExport;
+use Wallabag\CoreBundle\Repository\EntryRepository;
+use Wallabag\CoreBundle\Repository\TagRepository;
 
 /**
  * The try/catch can be removed once all formats will be implemented.
  * Still need implementation: txt.
  */
-class ExportController extends Controller
+class ExportController extends AbstractController
 {
     /**
      * Gets one entry content.
-     *
-     * @param string $format
      *
      * @Route("/export/{id}.{format}", name="export_entry", requirements={
      *     "format": "epub|mobi|pdf|json|xml|txt|csv",
      *     "id": "\d+"
      * })
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function downloadEntryAction(Request $request, $format, $id)
+    public function downloadEntryAction(Request $request, EntryRepository $entryRepository, EntriesExport $entriesExport, string $format, int $id)
     {
         try {
-            $entry = $this->get('wallabag_core.entry_repository')
-                ->find((int) $id);
+            $entry = $entryRepository->find($id);
 
             /*
              * We duplicate EntryController::checkUserAction here as a quick fix for an improper authorization vulnerability
@@ -40,7 +41,7 @@ class ExportController extends Controller
                 throw new NotFoundHttpException();
             }
 
-            return $this->get('wallabag_core.helper.entries_export')
+            return $entriesExport
                 ->setEntries($entry)
                 ->updateTitle('entry')
                 ->updateAuthor('entry')
@@ -53,27 +54,31 @@ class ExportController extends Controller
     /**
      * Export all entries for current user.
      *
-     * @param string $format
-     * @param string $category
-     *
      * @Route("/export/{category}.{format}", name="export_entries", requirements={
      *     "format": "epub|mobi|pdf|json|xml|txt|csv",
      *     "category": "all|unread|starred|archive|tag_entries|untagged|search|annotated|same_domain"
      * })
      *
-     * @return \Symfony\Component\HttpFoundation\Response
+     * @return Response
      */
-    public function downloadEntriesAction(Request $request, $format, $category)
+    public function downloadEntriesAction(Request $request, EntryRepository $entryRepository, TagRepository $tagRepository, EntriesExport $entriesExport, string $format, string $category, int $entry = 0)
     {
         $method = ucfirst($category);
         $methodBuilder = 'getBuilderFor' . $method . 'ByUser';
-        $repository = $this->get('wallabag_core.entry_repository');
         $title = $method;
 
-        if ('tag_entries' === $category) {
-            $tag = $this->get('wallabag_core.tag_repository')->findOneBySlug($request->query->get('tag'));
+        if ('same_domain' === $category) {
+            $entries = $entryRepository->getBuilderForSameDomainByUser(
+                $this->getUser()->getId(),
+                $request->get('entry')
+            )->getQuery()
+             ->getResult();
 
-            $entries = $repository->findAllByTagId(
+            $title = 'Same domain';
+        } elseif ('tag_entries' === $category) {
+            $tag = $tagRepository->findOneBySlug($request->query->get('tag'));
+
+            $entries = $entryRepository->findAllByTagId(
                 $this->getUser()->getId(),
                 $tag->getId()
             );
@@ -83,7 +88,7 @@ class ExportController extends Controller
             $searchTerm = (isset($request->get('search_entry')['term']) ? $request->get('search_entry')['term'] : '');
             $currentRoute = (null !== $request->query->get('currentRoute') ? $request->query->get('currentRoute') : '');
 
-            $entries = $repository->getBuilderForSearchByUser(
+            $entries = $entryRepository->getBuilderForSearchByUser(
                     $this->getUser()->getId(),
                     $searchTerm,
                     $currentRoute
@@ -92,21 +97,21 @@ class ExportController extends Controller
 
             $title = 'Search ' . $searchTerm;
         } elseif ('annotated' === $category) {
-            $entries = $repository->getBuilderForAnnotationsByUser(
+            $entries = $entryRepository->getBuilderForAnnotationsByUser(
                 $this->getUser()->getId()
             )->getQuery()
              ->getResult();
 
             $title = 'With annotations';
         } else {
-            $entries = $repository
+            $entries = $entryRepository
                 ->$methodBuilder($this->getUser()->getId())
                 ->getQuery()
                 ->getResult();
         }
 
         try {
-            return $this->get('wallabag_core.helper.entries_export')
+            return $entriesExport
                 ->setEntries($entries)
                 ->updateTitle($title)
                 ->updateAuthor($method)

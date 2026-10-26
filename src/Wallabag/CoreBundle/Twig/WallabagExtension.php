@@ -3,34 +3,38 @@
 namespace Wallabag\CoreBundle\Twig;
 
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\Extension\GlobalsInterface;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
+use Wallabag\AnnotationBundle\Repository\AnnotationRepository;
 use Wallabag\CoreBundle\Repository\EntryRepository;
 use Wallabag\CoreBundle\Repository\TagRepository;
+use Wallabag\UserBundle\Entity\User;
 
 class WallabagExtension extends AbstractExtension implements GlobalsInterface
 {
     private $tokenStorage;
     private $entryRepository;
+    private $annotationRepository;
     private $tagRepository;
     private $lifeTime;
     private $translator;
-    private $rootDir;
+    private $projectDir;
 
-    public function __construct(EntryRepository $entryRepository, TagRepository $tagRepository, TokenStorageInterface $tokenStorage, $lifeTime, TranslatorInterface $translator, string $rootDir)
+    public function __construct(EntryRepository $entryRepository, AnnotationRepository $annotationRepository, TagRepository $tagRepository, TokenStorageInterface $tokenStorage, $lifeTime, TranslatorInterface $translator, string $projectDir)
     {
         $this->entryRepository = $entryRepository;
+        $this->annotationRepository = $annotationRepository;
         $this->tagRepository = $tagRepository;
         $this->tokenStorage = $tokenStorage;
         $this->lifeTime = $lifeTime;
         $this->translator = $translator;
-        $this->rootDir = $rootDir;
+        $this->projectDir = $projectDir;
     }
 
-    public function getGlobals()
+    public function getGlobals(): array
     {
         return [];
     }
@@ -81,41 +85,35 @@ class WallabagExtension extends AbstractExtension implements GlobalsInterface
     {
         $user = $this->tokenStorage->getToken() ? $this->tokenStorage->getToken()->getUser() : null;
 
-        if (null === $user || !\is_object($user)) {
+        if (!$user instanceof User) {
             return 0;
         }
 
         switch ($type) {
             case 'starred':
-                $qb = $this->entryRepository->getBuilderForStarredByUser($user->getId());
+                $qb = $this->entryRepository->getCountBuilderForStarredByUser($user->getId())->select('COUNT(e.id)');
                 break;
             case 'archive':
-                $qb = $this->entryRepository->getBuilderForArchiveByUser($user->getId());
+                $qb = $this->entryRepository->getCountBuilderForArchiveByUser($user->getId())->select('COUNT(e.id)');
                 break;
             case 'unread':
-                $qb = $this->entryRepository->getBuilderForUnreadByUser($user->getId());
+                $qb = $this->entryRepository->getCountBuilderForUnreadByUser($user->getId())->select('COUNT(e.id)');
                 break;
             case 'annotated':
-                $qb = $this->entryRepository->getBuilderForAnnotationsByUser($user->getId());
+                $qb = $this->annotationRepository->getCountBuilderByUser($user->getId())->select('COUNT(DISTINCT e.entry)');
                 break;
             case 'all':
-                $qb = $this->entryRepository->getBuilderForAllByUser($user->getId());
+                $qb = $this->entryRepository->getCountBuilderForAllByUser($user->getId())->select('COUNT(e.id)');
                 break;
             default:
                 throw new \InvalidArgumentException(sprintf('Type "%s" is not implemented.', $type));
         }
 
-        // THANKS to PostgreSQL we CAN'T make a DEAD SIMPLE count(e.id)
-        // ERROR: column "e0_.id" must appear in the GROUP BY clause or be used in an aggregate function
-        $query = $qb
-            ->select('e.id')
-            ->groupBy('e.id')
-            ->getQuery();
-
+        $query = $qb->getQuery();
         $query->useQueryCache(true);
         $query->enableResultCache($this->lifeTime);
 
-        return \count($query->getArrayResult());
+        return $query->getSingleScalarResult();
     }
 
     /**
@@ -127,7 +125,7 @@ class WallabagExtension extends AbstractExtension implements GlobalsInterface
     {
         $user = $this->tokenStorage->getToken() ? $this->tokenStorage->getToken()->getUser() : null;
 
-        if (null === $user || !\is_object($user)) {
+        if (!$user instanceof User) {
             return 0;
         }
 
@@ -143,19 +141,18 @@ class WallabagExtension extends AbstractExtension implements GlobalsInterface
     {
         $user = $this->tokenStorage->getToken() ? $this->tokenStorage->getToken()->getUser() : null;
 
-        if (null === $user || !\is_object($user)) {
+        if (!$user instanceof User) {
             return 0;
         }
 
-        $query = $this->entryRepository->getBuilderForArchiveByUser($user->getId())
-            ->select('e.id')
-            ->groupBy('e.id')
+        $query = $this->entryRepository->getCountBuilderForArchiveByUser($user->getId())
+            ->select('COUNT(e.id)')
             ->getQuery();
 
         $query->useQueryCache(true);
         $query->enableResultCache($this->lifeTime);
 
-        $nbArchives = \count($query->getArrayResult());
+        $nbArchives = $query->getSingleScalarResult();
 
         $interval = $user->getCreatedAt()->diff(new \DateTime('now'));
         $nbDays = (int) $interval->format('%a') ?: 1;
@@ -173,7 +170,7 @@ class WallabagExtension extends AbstractExtension implements GlobalsInterface
 
     public function assetFileExists($name)
     {
-        return file_exists(realpath($this->rootDir . '/../web/' . $name));
+        return file_exists(realpath($this->projectDir . '/web/' . $name));
     }
 
     public function themeClass()

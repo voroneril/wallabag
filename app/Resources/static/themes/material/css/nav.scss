@@ -6,11 +6,32 @@ nav {
   line-height: initial;
 }
 
+// adapted from anchor styles from node_modules/materialize-css/sass/components/_navbar.scss
+nav ul button {
+  transition: background-color .3s;
+  font-size: 1rem;
+  color: #fff;
+  display: block;
+  padding: 0 15px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+
+  &:focus {
+    background: none;
+  }
+
+  &:hover {
+    background-color: rgba(0 0 0 / 10%);
+  }
+}
+
 nav {
   input {
     color: #aaa;
   }
 
+  ul button:hover,
   ul a:hover {
     background-color: initial;
   }
@@ -34,6 +55,7 @@ nav {
   justify-content: space-between;
   align-items: center;
 
+  button,
   a {
     padding: 10px 15px;
   }
@@ -70,6 +92,7 @@ nav {
 
   .input-field input {
     display: block;
+    font-size: 1.2rem;
     line-height: inherit;
     height: 3rem;
   }
@@ -78,6 +101,17 @@ nav {
     border: 0;
     box-shadow: none;
     color: #444;
+  }
+
+  /* materializecss override */
+  .input-field.input-field input {
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+
+  .input-field.input-field input:focus {
+    border-bottom: none;
+    box-shadow: initial;
   }
 }
 
@@ -131,11 +165,11 @@ nav {
   margin: 0 1%;
 }
 
-#button_filters {
+.button-filters {
   display: none;
 }
 
-#button_export {
+.button-export {
   display: none;
 }
 
@@ -161,6 +195,16 @@ nav {
 }
 
 @media (min-width: 993px) {
+  .toggle-add-url-container {
+    flex-grow: 1;
+  }
+
+  .toggle-add-url {
+    display: flex;
+    width: 100%;
+    justify-content: end;
+  }
+
   .button-collapse {
     display: none;
   }

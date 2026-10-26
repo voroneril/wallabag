@@ -6,15 +6,16 @@ use Http\Client\Common\HttpMethodsClient;
 use Http\Client\Common\Plugin\ErrorPlugin;
 use Http\Client\Common\PluginClient;
 use Http\Client\Exception\RequestException;
-use Http\Client\HttpClient;
-use Http\Discovery\MessageFactoryDiscovery;
-use Http\Message\MessageFactory;
+use Http\Discovery\Psr17FactoryDiscovery;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 use Wallabag\CoreBundle\Entity\Entry;
 
 class PocketImport extends AbstractImport
 {
-    const NB_ELEMENTS = 5000;
+    public const NB_ELEMENTS = 30;
     /**
      * @var HttpMethodsClient
      */
@@ -152,9 +153,9 @@ class PocketImport extends AbstractImport
     /**
      * Set the Http client.
      */
-    public function setClient(HttpClient $client, MessageFactory $messageFactory = null)
+    public function setClient(ClientInterface $client, RequestFactoryInterface $requestFactory = null, StreamFactoryInterface $streamFactory = null)
     {
-        $this->client = new HttpMethodsClient(new PluginClient($client, [new ErrorPlugin()]), $messageFactory ?: MessageFactoryDiscovery::find());
+        $this->client = new HttpMethodsClient(new PluginClient($client, [new ErrorPlugin()]), $requestFactory ?: Psr17FactoryDiscovery::findRequestFactory(), $streamFactory ?: Psr17FactoryDiscovery::findStreamFactory());
     }
 
     /**
@@ -179,7 +180,7 @@ class PocketImport extends AbstractImport
         $url = isset($importedEntry['resolved_url']) && '' !== $importedEntry['resolved_url'] ? $importedEntry['resolved_url'] : $importedEntry['given_url'];
 
         $existingEntry = $this->em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->findByUrlAndUserId($url, $this->user->getId());
 
         if (false !== $existingEntry) {

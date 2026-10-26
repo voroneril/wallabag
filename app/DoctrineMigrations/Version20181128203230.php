@@ -2,6 +2,7 @@
 
 namespace Application\Migrations;
 
+use Doctrine\DBAL\Platforms\MySQLPlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Wallabag\CoreBundle\Doctrine\WallabagMigration;
 
@@ -10,9 +11,9 @@ use Wallabag\CoreBundle\Doctrine\WallabagMigration;
  */
 class Version20181128203230 extends WallabagMigration
 {
-    public function up(Schema $schema)
+    public function up(Schema $schema): void
     {
-        $this->skipIf('mysql' !== $this->connection->getDatabasePlatform()->getName(), 'This migration can only be applied on \'mysql\'.');
+        $this->skipIf(!$this->connection->getDatabasePlatform() instanceof MySQLPlatform, 'This migration can only be applied on \'mysql\'.');
 
         $this->addSql('ALTER TABLE ' . $this->getTable('oauth2_access_tokens') . ' CHANGE `token` `token` varchar(191) NOT NULL');
         $this->addSql('ALTER TABLE ' . $this->getTable('oauth2_access_tokens') . ' CHANGE `scope` `scope` varchar(191)');
@@ -25,9 +26,9 @@ class Version20181128203230 extends WallabagMigration
         $this->addSql('ALTER TABLE ' . $this->getTable('craue_config_setting') . ' CHANGE `value` `value` varchar(191)');
     }
 
-    public function down(Schema $schema)
+    public function down(Schema $schema): void
     {
-        $this->skipIf('mysql' !== $this->connection->getDatabasePlatform()->getName(), 'This migration can only be applied on \'mysql\'.');
+        $this->skipIf(!$this->connection->getDatabasePlatform() instanceof MySQLPlatform, 'This migration can only be applied on \'mysql\'.');
 
         $this->addSql('ALTER TABLE ' . $this->getTable('oauth2_access_tokens') . ' CHANGE `token` `token` varchar(255) NOT NULL');
         $this->addSql('ALTER TABLE ' . $this->getTable('oauth2_access_tokens') . ' CHANGE `scope` `scope` varchar(255)');

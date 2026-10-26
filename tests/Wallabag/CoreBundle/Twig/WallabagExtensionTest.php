@@ -3,29 +3,38 @@
 namespace Tests\Wallabag\CoreBundle\Twig;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Wallabag\AnnotationBundle\Repository\AnnotationRepository;
+use Wallabag\CoreBundle\Repository\EntryRepository;
+use Wallabag\CoreBundle\Repository\TagRepository;
 use Wallabag\CoreBundle\Twig\WallabagExtension;
 
 class WallabagExtensionTest extends TestCase
 {
     public function testRemoveWww()
     {
-        $entryRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\EntryRepository')
+        $entryRepository = $this->getMockBuilder(EntryRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tagRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\TagRepository')
+        $annotationRepository = $this->getMockBuilder(AnnotationRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tokenStorage = $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface')
+        $tagRepository = $this->getMockBuilder(TagRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $translator = $this->getMockBuilder('Symfony\Component\Translation\TranslatorInterface')
+        $tokenStorage = $this->getMockBuilder(TokenStorageInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $extension = new WallabagExtension($entryRepository, $tagRepository, $tokenStorage, 0, $translator, '');
+        $translator = $this->getMockBuilder(TranslatorInterface::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $extension = new WallabagExtension($entryRepository, $annotationRepository, $tagRepository, $tokenStorage, 0, $translator, '');
 
         $this->assertSame('lemonde.fr', $extension->removeWww('www.lemonde.fr'));
         $this->assertSame('lemonde.fr', $extension->removeWww('lemonde.fr'));
@@ -34,23 +43,27 @@ class WallabagExtensionTest extends TestCase
 
     public function testRemoveScheme()
     {
-        $entryRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\EntryRepository')
+        $entryRepository = $this->getMockBuilder(EntryRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tagRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\TagRepository')
+        $annotationRepository = $this->getMockBuilder(AnnotationRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tokenStorage = $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface')
+        $tagRepository = $this->getMockBuilder(TagRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $translator = $this->getMockBuilder('Symfony\Component\Translation\TranslatorInterface')
+        $tokenStorage = $this->getMockBuilder(TokenStorageInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $extension = new WallabagExtension($entryRepository, $tagRepository, $tokenStorage, 0, $translator, '');
+        $translator = $this->getMockBuilder(TranslatorInterface::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $extension = new WallabagExtension($entryRepository, $annotationRepository, $tagRepository, $tokenStorage, 0, $translator, '');
 
         $this->assertSame('lemonde.fr', $extension->removeScheme('lemonde.fr'));
         $this->assertSame('gist.github.com', $extension->removeScheme('gist.github.com'));
@@ -59,23 +72,27 @@ class WallabagExtensionTest extends TestCase
 
     public function testRemoveSchemeAndWww()
     {
-        $entryRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\EntryRepository')
+        $entryRepository = $this->getMockBuilder(EntryRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tagRepository = $this->getMockBuilder('Wallabag\CoreBundle\Repository\TagRepository')
+        $annotationRepository = $this->getMockBuilder(AnnotationRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $tokenStorage = $this->getMockBuilder('Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface')
+        $tagRepository = $this->getMockBuilder(TagRepository::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $translator = $this->getMockBuilder('Symfony\Component\Translation\TranslatorInterface')
+        $tokenStorage = $this->getMockBuilder(TokenStorageInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $extension = new WallabagExtension($entryRepository, $tagRepository, $tokenStorage, 0, $translator, '');
+        $translator = $this->getMockBuilder(TranslatorInterface::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $extension = new WallabagExtension($entryRepository, $annotationRepository, $tagRepository, $tokenStorage, 0, $translator, '');
 
         $this->assertSame('lemonde.fr', $extension->removeSchemeAndWww('www.lemonde.fr'));
         $this->assertSame('lemonde.fr', $extension->removeSchemeAndWww('http://lemonde.fr'));

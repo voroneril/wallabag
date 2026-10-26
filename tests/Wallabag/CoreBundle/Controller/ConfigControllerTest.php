@@ -2,19 +2,25 @@
 
 namespace Tests\Wallabag\CoreBundle\Controller;
 
+use Craue\ConfigBundle\Util\Config;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Tests\Wallabag\CoreBundle\WallabagCoreTestCase;
 use Wallabag\AnnotationBundle\Entity\Annotation;
-use Wallabag\CoreBundle\Entity\Config;
+use Wallabag\CoreBundle\Entity\Config as ConfigEntity;
 use Wallabag\CoreBundle\Entity\Entry;
+use Wallabag\CoreBundle\Entity\IgnoreOriginUserRule;
 use Wallabag\CoreBundle\Entity\Tag;
+use Wallabag\CoreBundle\Entity\TaggingRule;
 use Wallabag\UserBundle\Entity\User;
 
 class ConfigControllerTest extends WallabagCoreTestCase
 {
     public function testLogin()
     {
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $client->request('GET', '/new');
 
@@ -25,7 +31,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testIndex()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -40,7 +46,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUpdate()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -49,7 +55,6 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $form = $crawler->filter('button[id=config_save]')->form();
 
         $data = [
-            'config[theme]' => 'baggy',
             'config[items_per_page]' => '30',
             'config[reading_speed]' => '100',
             'config[action_mark_as_read]' => '0',
@@ -68,8 +73,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testChangeReadingSpeed()
     {
         $this->logInAs('admin');
-        $this->useTheme('baggy');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $entry = new Entry($this->getLoggedInUser());
         $entry->setUrl('http://0.0.0.0/test-entry1')
@@ -86,7 +90,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
             'entry_filter[readingTime][left_number]' => 22,
         ];
         $crawler = $client->submit($form, $dataFilters);
-        $this->assertCount(1, $crawler->filter('div[class=entry]'));
+        $this->assertCount(0, $crawler->filter('div[class=entry]'));
 
         // Change reading speed
         $crawler = $client->request('GET', '/config');
@@ -115,7 +119,6 @@ class ConfigControllerTest extends WallabagCoreTestCase
     {
         return [
             [[
-                'config[theme]' => 'baggy',
                 'config[items_per_page]' => '',
                 'config[language]' => 'en',
             ]],
@@ -128,7 +131,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUpdateFailed($data)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -188,7 +191,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testChangePasswordFailed($data, $expectedMessage)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -207,7 +210,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testChangePassword()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -256,7 +259,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUserFailed($data, $expectedMessage)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -275,7 +278,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUserUpdate()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -301,12 +304,12 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testFeedUpdateResetToken()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         // reset the token
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('admin');
 
         if (!$user) {
@@ -325,7 +328,8 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
         $this->assertStringContainsString('config.form_feed.no_token', $body[0]);
 
-        $client->request('GET', '/generate-token');
+        $client->submit($crawler->selectButton('config.form_feed.token_create')->form());
+
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
         $crawler = $client->followRedirect();
@@ -334,44 +338,40 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $this->assertStringContainsString('config.form_feed.token_reset', $body[0]);
     }
 
-    public function testGenerateTokenAjax()
-    {
-        $this->logInAs('admin');
-        $client = $this->getClient();
-
-        $client->request(
-            'GET',
-            '/generate-token',
-            [],
-            [],
-            ['HTTP_X-Requested-With' => 'XMLHttpRequest']
-        );
-
-        $this->assertSame(200, $client->getResponse()->getStatusCode());
-        $content = json_decode($client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('token', $content);
-    }
-
     public function testRevokeTokenAjax()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $client->request(
-            'GET',
-            '/revoke-token',
-            [],
-            [],
-            ['HTTP_X-Requested-With' => 'XMLHttpRequest']
-        );
+        // set the token
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        $user = $em
+            ->getRepository(User::class)
+            ->findOneByUsername('admin');
 
-        $this->assertSame(200, $client->getResponse()->getStatusCode());
+        if (!$user) {
+            $this->markTestSkipped('No user found in db.');
+        }
+
+        $config = $user->getConfig();
+        $config->setFeedToken('abcd1234');
+        $em->persist($config);
+        $em->flush();
+
+        $crawler = $client->request('GET', '/config');
+
+        $client->submit($crawler->selectButton('config.form_feed.token_revoke')->form());
+
+        $crawler = $client->followRedirect();
+
+        $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
+        $this->assertStringContainsString('config.form_feed.token_create', $body[0]);
     }
 
     public function testFeedUpdate()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -399,7 +399,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
                 [
                     'feed_config[feed_limit]' => 0,
                 ],
-                'This value should be 1 or more.',
+                'This value should be between 1 and 100000.',
             ],
             [
                 [
@@ -416,7 +416,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testFeedFailed($data, $expectedMessage)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -435,7 +435,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testTaggingRuleCreation()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -456,7 +456,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertStringContainsString('flashes.config.notice.tagging_rules_updated', $crawler->filter('body')->extract(['_text'])[0]);
 
-        $editLink = $crawler->filter('div[id=set5] a.mode_edit')->last()->link();
+        $editLink = $crawler->filter('.mode_edit_tagging_rule')->last()->link();
 
         $crawler = $client->click($editLink);
         $this->assertSame(302, $client->getResponse()->getStatusCode());
@@ -481,9 +481,8 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertStringContainsString('readingTime <= 30', $crawler->filter('body')->extract(['_text'])[0]);
 
-        $deleteLink = $crawler->filter('div[id=set5] a.delete')->last()->link();
+        $crawler = $client->submit($crawler->filter('#set5')->selectButton('delete')->form());
 
-        $crawler = $client->click($deleteLink);
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
         $crawler = $client->followRedirect();
@@ -522,7 +521,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testTaggingRuleCreationFail($data, $messages)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -544,7 +543,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testTaggingRuleTooLong()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -567,26 +566,26 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testDeletingTaggingRuleFromAnOtherUser()
     {
         $this->logInAs('bob');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $rule = $client->getContainer()->get('doctrine.orm.entity_manager')
-            ->getRepository('WallabagCoreBundle:TaggingRule')
+        $rule = $client->getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(TaggingRule::class)
             ->findAll()[0];
 
-        $crawler = $client->request('GET', '/tagging-rule/delete/' . $rule->getId());
+        $crawler = $client->request('POST', '/tagging-rule/delete/' . $rule->getId());
 
-        $this->assertSame(403, $client->getResponse()->getStatusCode());
+        $this->assertSame(400, $client->getResponse()->getStatusCode());
         $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
-        $this->assertStringContainsString('You can not access this rule', $body[0]);
+        $this->assertStringContainsString('Bad CSRF token.', $body[0]);
     }
 
     public function testEditingTaggingRuleFromAnOtherUser()
     {
         $this->logInAs('bob');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $rule = $client->getContainer()->get('doctrine.orm.entity_manager')
-            ->getRepository('WallabagCoreBundle:TaggingRule')
+        $rule = $client->getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(TaggingRule::class)
             ->findAll()[0];
 
         $crawler = $client->request('GET', '/tagging-rule/edit/' . $rule->getId());
@@ -599,7 +598,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testIgnoreOriginRuleCreation()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -643,9 +642,9 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertStringContainsString('host = "example.org"', $crawler->filter('body')->extract(['_text'])[0]);
 
-        $deleteLink = $crawler->filter('div[id=set6] a.delete')->last()->link();
+        $form = $crawler->filter('#set6')->selectButton('delete')->form();
 
-        $crawler = $client->click($deleteLink);
+        $crawler = $client->submit($form);
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
         $crawler = $client->followRedirect();
@@ -682,7 +681,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testIgnoreOriginRuleCreationFail($data, $messages)
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
@@ -704,26 +703,26 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testDeletingIgnoreOriginRuleFromAnOtherUser()
     {
         $this->logInAs('bob');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $rule = $client->getContainer()->get('doctrine.orm.entity_manager')
-            ->getRepository('WallabagCoreBundle:IgnoreOriginUserRule')
+        $rule = $client->getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(IgnoreOriginUserRule::class)
             ->findAll()[0];
 
-        $crawler = $client->request('GET', '/ignore-origin-user-rule/edit/' . $rule->getId());
+        $crawler = $client->request('POST', '/ignore-origin-user-rule/delete/' . $rule->getId());
 
-        $this->assertSame(403, $client->getResponse()->getStatusCode());
+        $this->assertSame(400, $client->getResponse()->getStatusCode());
         $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
-        $this->assertStringContainsString('You can not access this rule', $body[0]);
+        $this->assertStringContainsString('Bad CSRF token.', $body[0]);
     }
 
     public function testEditingIgnoreOriginRuleFromAnOtherUser()
     {
         $this->logInAs('bob');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $rule = $client->getContainer()->get('doctrine.orm.entity_manager')
-            ->getRepository('WallabagCoreBundle:IgnoreOriginUserRule')
+        $rule = $client->getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(IgnoreOriginUserRule::class)
             ->findAll()[0];
 
         $crawler = $client->request('GET', '/ignore-origin-user-rule/edit/' . $rule->getId());
@@ -736,9 +735,9 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testDemoMode()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $config = $client->getContainer()->get('craue_config');
+        $config = $client->getContainer()->get(Config::class);
         $config->set('demo_mode_enabled', 1);
         $config->set('demo_mode_username', 'admin');
 
@@ -757,7 +756,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $client->submit($form, $data);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.password_not_updated_demo', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.password_not_updated_demo', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $config->set('demo_mode_enabled', 0);
         $config->set('demo_mode_username', 'wallabag');
@@ -766,23 +765,23 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testDeleteUserButtonVisibility()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
 
         $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
         $this->assertStringContainsString('config.form_user.delete.button', $body[0]);
 
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('empty');
         $user->setEnabled(false);
         $em->persist($user);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('bob');
         $user->setEnabled(false);
         $em->persist($user);
@@ -795,16 +794,16 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $this->assertStringNotContainsString('config.form_user.delete.button', $body[0]);
 
         $client->request('POST', '/account/delete');
-        $this->assertSame(403, $client->getResponse()->getStatusCode());
+        $this->assertSame(400, $client->getResponse()->getStatusCode());
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('empty');
         $user->setEnabled(true);
         $em->persist($user);
 
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('bob');
         $user->setEnabled(true);
         $em->persist($user);
@@ -817,8 +816,8 @@ class ConfigControllerTest extends WallabagCoreTestCase
      */
     public function testDeleteAccount()
     {
-        $client = $this->getClient();
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $client = $this->getTestClient();
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
 
         $user = new User();
         $user->setName('Wallace');
@@ -830,9 +829,8 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $em->persist($user);
 
-        $config = new Config($user);
+        $config = new ConfigEntity($user);
 
-        $config->setTheme('material');
         $config->setItemsPerPage(30);
         $config->setReadingSpeed(200);
         $config->setLanguage('en');
@@ -865,9 +863,9 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $client->submit($deleteForm);
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->createQueryBuilder('u')
             ->where('u.username = :username')->setParameter('username', 'wallace')
             ->getQuery()
@@ -877,8 +875,8 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $this->assertNull($user);
 
         $entries = $client->getContainer()
-            ->get('doctrine.orm.entity_manager')
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->get(EntityManagerInterface::class)
+            ->getRepository(Entry::class)
             ->findByUser($loggedInUserId);
 
         $this->assertEmpty($entries);
@@ -887,11 +885,13 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testReset()
     {
         $this->logInAs('empty');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
 
-        $user = static::$kernel->getContainer()->get('security.token_storage')->getToken()->getUser();
+        $user = static::$kernel->getContainer()->get(TokenStorageInterface::class)->getToken()->getUser();
+
+        \assert($user instanceof User);
 
         $tag = new Tag();
         $tag->setLabel('super');
@@ -925,13 +925,14 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->click($crawler->selectLink('config.reset.annotations')->link());
+        $form = $crawler->filter('form[name=reset-annotations]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.annotations_reset', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.annotations_reset', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $annotationsReset = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findByEntryIdAndUserId($entry->getId(), $user->getId());
 
         $this->assertEmpty($annotationsReset, 'Annotations were reset');
@@ -941,13 +942,14 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->click($crawler->selectLink('config.reset.tags')->link());
+        $form = $crawler->filter('form[name=reset-tags]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.tags_reset', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.tags_reset', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $tagReset = $em
-            ->getRepository('WallabagCoreBundle:Tag')
+            ->getRepository(Tag::class)
             ->countAllTags($user->getId());
 
         $this->assertSame(0, $tagReset, 'Tags were reset');
@@ -957,13 +959,14 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->click($crawler->selectLink('config.reset.entries')->link());
+        $form = $crawler->filter('form[name=reset-entries]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.entries_reset', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.entries_reset', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $entryReset = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->countAllEntriesByUser($user->getId());
 
         $this->assertSame(0, $entryReset, 'Entries were reset');
@@ -972,11 +975,13 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testResetArchivedEntries()
     {
         $this->logInAs('empty');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
 
-        $user = static::$kernel->getContainer()->get('security.token_storage')->getToken()->getUser();
+        $user = static::$kernel->getContainer()->get(TokenStorageInterface::class)->getToken()->getUser();
+
+        \assert($user instanceof User);
 
         $tag = new Tag();
         $tag->setLabel('super');
@@ -1021,25 +1026,26 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->click($crawler->selectLink('config.reset.archived')->link());
+        $form = $crawler->filter('form[name=reset-archived]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.archived_reset', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.archived_reset', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $entryReset = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->countAllEntriesByUser($user->getId());
 
         $this->assertSame(1, $entryReset, 'Entries were reset');
 
         $tagReset = $em
-            ->getRepository('WallabagCoreBundle:Tag')
+            ->getRepository(Tag::class)
             ->countAllTags($user->getId());
 
         $this->assertSame(1, $tagReset, 'Tags were reset');
 
         $annotationsReset = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findByEntryIdAndUserId($annotationArchived->getId(), $user->getId());
 
         $this->assertEmpty($annotationsReset, 'Annotations were reset');
@@ -1048,11 +1054,13 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testResetEntriesCascade()
     {
         $this->logInAs('empty');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $em = $client->getContainer()->get('doctrine.orm.entity_manager');
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
 
-        $user = static::$kernel->getContainer()->get('security.token_storage')->getToken()->getUser();
+        $user = static::$kernel->getContainer()->get(TokenStorageInterface::class)->getToken()->getUser();
+
+        \assert($user instanceof User);
 
         $tag = new Tag();
         $tag->setLabel('super');
@@ -1078,25 +1086,26 @@ class ConfigControllerTest extends WallabagCoreTestCase
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->click($crawler->selectLink('config.reset.entries')->link());
+        $form = $crawler->filter('form[name=reset-entries]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-        $this->assertStringContainsString('flashes.config.notice.entries_reset', $client->getContainer()->get('session')->getFlashBag()->get('notice')[0]);
+        $this->assertStringContainsString('flashes.config.notice.entries_reset', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         $entryReset = $em
-            ->getRepository('WallabagCoreBundle:Entry')
+            ->getRepository(Entry::class)
             ->countAllEntriesByUser($user->getId());
 
         $this->assertSame(0, $entryReset, 'Entries were reset');
 
         $tagReset = $em
-            ->getRepository('WallabagCoreBundle:Tag')
+            ->getRepository(Tag::class)
             ->countAllTags($user->getId());
 
         $this->assertSame(0, $tagReset, 'Tags were reset');
 
         $annotationsReset = $em
-            ->getRepository('WallabagAnnotationBundle:Annotation')
+            ->getRepository(Annotation::class)
             ->findByEntryIdAndUserId($entry->getId(), $user->getId());
 
         $this->assertEmpty($annotationsReset, 'Annotations were reset');
@@ -1105,76 +1114,79 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testSwitchViewMode()
     {
         $this->logInAs('admin');
-        $this->useTheme('baggy');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $client->request('GET', '/unread/list');
+        $crawler = $client->request('GET', '/unread/list');
 
-        $this->assertStringNotContainsString('listmode', $client->getResponse()->getContent());
+        $this->assertStringContainsString('row data', $client->getResponse()->getContent());
 
-        $client->request('GET', '/config/view-mode');
-        $crawler = $client->followRedirect();
+        $form = $crawler->filter('.nb-results')->selectButton('view_list')->form();
 
-        $client->request('GET', '/unread/list');
+        $client->submit($form);
 
-        $this->assertStringContainsString('listmode', $client->getResponse()->getContent());
+        $client->followRedirect();
 
-        $client->request('GET', '/config/view-mode');
+        $this->assertStringContainsString('collection', $client->getResponse()->getContent());
     }
 
     public function testChangeLocaleWithoutReferer()
     {
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $client->request('GET', '/locale/de');
-        $client->followRedirect();
+        $crawler = $client->request('POST', '/locale/de');
 
-        $this->assertSame('de', $client->getRequest()->getLocale());
-        $this->assertSame('de', $client->getContainer()->get('session')->get('_locale'));
+        $this->assertSame(400, $client->getResponse()->getStatusCode());
+        $this->assertGreaterThan(1, $body = $crawler->filter('body')->extract(['_text']));
+        $this->assertStringContainsString('Bad CSRF token.', $body[0]);
     }
 
     public function testChangeLocaleWithReferer()
     {
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $client->request('GET', '/login');
-        $client->request('GET', '/locale/de');
+        $crawler = $client->request('GET', '/login');
+
+        $client->submit($crawler->selectButton('Deutsch')->form());
+
         $client->followRedirect();
 
         $this->assertSame('de', $client->getRequest()->getLocale());
-        $this->assertSame('de', $client->getContainer()->get('session')->get('_locale'));
+        $this->assertSame('de', $client->getContainer()->get(SessionInterface::class)->get('_locale'));
     }
 
     public function testChangeLocaleToBadLocale()
     {
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $client->request('GET', '/login');
-        $client->request('GET', '/locale/yuyuyuyu');
+        $crawler = $client->request('GET', '/login');
+        $token = $crawler->filter('form[action="/locale/de"] input[name=token]')->attr('value');
+
+        $client->request('POST', '/locale/yuyuyuyu', [
+            'token' => $token,
+        ]);
         $client->followRedirect();
 
         $this->assertNotSame('yuyuyuyu', $client->getRequest()->getLocale());
-        $this->assertNotSame('yuyuyuyu', $client->getContainer()->get('session')->get('_locale'));
+        $this->assertNotSame('yuyuyuyu', $client->getContainer()->get(SessionInterface::class)->get('_locale'));
     }
 
     public function testUserEnable2faEmail()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $crawler = $client->request('GET', '/config/otp/email');
+        $crawler = $client->request('GET', '/config');
+
+        $form = $crawler->filter('form[name=config_otp_email]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
-
-        $crawler = $client->followRedirect();
-
-        $this->assertGreaterThan(1, $alert = $crawler->filter('body')->extract(['_text']));
-        $this->assertStringContainsString('flashes.config.notice.otp_enabled', $alert[0]);
+        $this->assertStringContainsString('flashes.config.notice.otp_enabled', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         // restore user
         $em = $this->getEntityManager();
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('admin');
 
         $this->assertTrue($user->isEmailTwoFactor());
@@ -1187,21 +1199,30 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUserDisable2faEmail()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $crawler = $client->request('GET', '/config/otp/email/disable');
+        $em = $this->getEntityManager();
+        $user = $em
+            ->getRepository(User::class)
+            ->findOneByUsername('admin');
+
+        $user->setEmailTwoFactor(true);
+        $em->persist($user);
+        $em->flush();
+
+        $crawler = $client->request('GET', '/config');
+
+        $form = $crawler->filter('form[name=disable_otp_email]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->followRedirect();
-
-        $this->assertGreaterThan(1, $alert = $crawler->filter('body')->extract(['_text']));
-        $this->assertStringContainsString('flashes.config.notice.otp_disabled', $alert[0]);
+        $this->assertStringContainsString('flashes.config.notice.otp_disabled', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         // restore user
         $em = $this->getEntityManager();
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('admin');
 
         $this->assertFalse($user->isEmailTwoFactor());
@@ -1210,16 +1231,19 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testUserEnable2faGoogle()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $crawler = $client->request('GET', '/config/otp/app');
+        $crawler = $client->request('GET', '/config');
+
+        $form = $crawler->filter('form[name=config_otp_app]')->form();
+        $client->submit($form);
 
         $this->assertSame(200, $client->getResponse()->getStatusCode());
 
         // restore user
         $em = $this->getEntityManager();
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('admin');
 
         $this->assertTrue($user->isGoogleTwoFactor());
@@ -1231,54 +1255,33 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $em->flush();
     }
 
-    public function testUserEnable2faGoogleCancel()
-    {
-        $this->logInAs('admin');
-        $client = $this->getClient();
-
-        $crawler = $client->request('GET', '/config/otp/app');
-
-        $this->assertSame(200, $client->getResponse()->getStatusCode());
-
-        // restore user
-        $em = $this->getEntityManager();
-        $user = $em
-            ->getRepository('WallabagUserBundle:User')
-            ->findOneByUsername('admin');
-
-        $this->assertTrue($user->isGoogleTwoFactor());
-        $this->assertGreaterThan(0, $user->getBackupCodes());
-
-        $crawler = $client->request('GET', '/config/otp/app/cancel');
-
-        $this->assertSame(302, $client->getResponse()->getStatusCode());
-
-        $user = $em
-            ->getRepository('WallabagUserBundle:User')
-            ->findOneByUsername('admin');
-
-        $this->assertFalse($user->isGoogleTwoFactor());
-        $this->assertEmpty($user->getBackupCodes());
-    }
-
     public function testUserDisable2faGoogle()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
-        $crawler = $client->request('GET', '/config/otp/app/disable');
+        $em = $this->getEntityManager();
+        $user = $em
+            ->getRepository(User::class)
+            ->findOneByUsername('admin');
+
+        $user->setGoogleAuthenticatorSecret('Google2FA');
+        $em->persist($user);
+        $em->flush();
+
+        $crawler = $client->request('GET', '/config');
+
+        $form = $crawler->filter('form[name=disable_otp_app]')->form();
+        $client->submit($form);
 
         $this->assertSame(302, $client->getResponse()->getStatusCode());
 
-        $crawler = $client->followRedirect();
-
-        $this->assertGreaterThan(1, $alert = $crawler->filter('body')->extract(['_text']));
-        $this->assertStringContainsString('flashes.config.notice.otp_disabled', $alert[0]);
+        $this->assertStringContainsString('flashes.config.notice.otp_disabled', $client->getContainer()->get(SessionInterface::class)->getFlashBag()->get('notice')[0]);
 
         // restore user
         $em = $this->getEntityManager();
         $user = $em
-            ->getRepository('WallabagUserBundle:User')
+            ->getRepository(User::class)
             ->findOneByUsername('admin');
 
         $this->assertEmpty($user->getGoogleAuthenticatorSecret());
@@ -1288,7 +1291,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testExportTaggingRule()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         ob_start();
         $crawler = $client->request('GET', '/tagging-rule/export');
@@ -1311,7 +1314,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testImportTagginfRuleBadFile()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
         $form = $crawler->filter('form[name=upload_tagging_rule_file] > button[type=submit]')->form();
@@ -1328,7 +1331,7 @@ class ConfigControllerTest extends WallabagCoreTestCase
     public function testImportTagginfRuleFile()
     {
         $this->logInAs('admin');
-        $client = $this->getClient();
+        $client = $this->getTestClient();
 
         $crawler = $client->request('GET', '/config');
         $form = $crawler->filter('form[name=upload_tagging_rule_file] > button[type=submit]')->form();
@@ -1346,5 +1349,39 @@ class ConfigControllerTest extends WallabagCoreTestCase
         $taggingRules = $user->getConfig()->getTaggingRules()->toArray();
         $this->assertCount(5, $taggingRules);
         $this->assertSame('title matches "football"', $taggingRules[4]->getRule());
+    }
+
+    public function testSwitchDisplayThumbnails()
+    {
+        $this->logInAs('admin');
+        $client = $this->getTestClient();
+
+        // Change configuration to show thumbnails
+        $crawler = $client->request('GET', '/config');
+        $this->assertSame(200, $client->getResponse()->getStatusCode());
+        $form = $crawler->filter('button[id=config_save]')->form();
+        $data = [
+            'config[display_thumbnails]' => true,
+        ];
+        $client->submit($form, $data);
+        $client->followRedirect();
+
+        $client->request('GET', '/unread/list');
+
+        $this->assertStringContainsString('class="preview"', $client->getResponse()->getContent());
+
+        // Change configuration to hide thumbnails
+        $crawler = $client->request('GET', '/config');
+        $this->assertSame(200, $client->getResponse()->getStatusCode());
+        $form = $crawler->filter('button[id=config_save]')->form();
+        $data = [
+            'config[display_thumbnails]' => false,
+        ];
+        $client->submit($form, $data);
+        $client->followRedirect();
+
+        $client->request('GET', '/unread/list');
+
+        $this->assertStringNotContainsString('class="preview"', $client->getResponse()->getContent());
     }
 }

@@ -2,11 +2,11 @@
 
 namespace Wallabag\CoreBundle\Form\Type;
 
-use Doctrine\ORM\EntityRepository;
 use Lexik\Bundle\FormFilterBundle\Filter\FilterOperands;
 use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\CheckboxFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\ChoiceFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\DateRangeFilterType;
+use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\NumberFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\NumberRangeFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Form\Type\TextFilterType;
 use Lexik\Bundle\FormFilterBundle\Filter\Query\QueryInterface;
@@ -15,28 +15,30 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Wallabag\CoreBundle\Repository\EntryRepository;
+use Wallabag\CoreBundle\Tools\Utils;
+use Wallabag\UserBundle\Entity\User;
 
 class EntryFilterType extends AbstractType
 {
-    private $user;
     private $repository;
+    private $tokenStorage;
 
     /**
      * Repository & user are used to get a list of language entries for this user.
      */
-    public function __construct(EntityRepository $entryRepository, TokenStorageInterface $tokenStorage)
+    public function __construct(EntryRepository $entryRepository, TokenStorageInterface $tokenStorage)
     {
         $this->repository = $entryRepository;
-
-        $this->user = $tokenStorage->getToken() ? $tokenStorage->getToken()->getUser() : null;
-
-        if (null === $this->user || !\is_object($this->user)) {
-            return;
-        }
+        $this->tokenStorage = $tokenStorage;
     }
 
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
+        $user = $this->tokenStorage->getToken() ? $this->tokenStorage->getToken()->getUser() : null;
+
+        \assert($user instanceof User);
+
         $builder
             ->add('readingTime', NumberRangeFilterType::class, [
                 'left_number_options' => [
@@ -47,17 +49,19 @@ class EntryFilterType extends AbstractType
                     'condition_operator' => FilterOperands::OPERATOR_LOWER_THAN_EQUAL,
                     'attr' => ['min' => 0],
                 ],
-                'apply_filter' => function (QueryInterface $filterQuery, $field, $values) {
+                'apply_filter' => function (QueryInterface $filterQuery, $field, $values) use ($user) {
                     $lower = $values['value']['left_number'][0];
                     $upper = $values['value']['right_number'][0];
-
-                    $min = (int) ($lower * $this->user->getConfig()->getReadingSpeed() / 200);
-                    $max = (int) ($upper * $this->user->getConfig()->getReadingSpeed() / 200);
 
                     if (null === $lower && null === $upper) {
                         // no value? no filter
                         return;
-                    } elseif (null === $lower && null !== $upper) {
+                    }
+
+                    $min = (int) ($lower * $user->getConfig()->getReadingSpeed() / Utils::DEFAULT_WORDS_PER_MINUTE);
+                    $max = (int) ($upper * $user->getConfig()->getReadingSpeed() / Utils::DEFAULT_WORDS_PER_MINUTE);
+
+                    if (null === $lower && null !== $upper) {
                         // only lower value is defined: query all entries with reading LOWER THAN this value
                         $expression = $filterQuery->getExpr()->lte($field, $max);
                     } elseif (null !== $lower && null === $upper) {
@@ -100,10 +104,13 @@ class EntryFilterType extends AbstractType
                     return $filterQuery->createCondition($expression);
                 },
                 'label' => 'entry.filters.domain_label',
+                'attr' => [
+                    'autocapitalize' => 'off',
+                ],
             ])
-            ->add('httpStatus', TextFilterType::class, [
+            ->add('httpStatus', NumberFilterType::class, [
                 'apply_filter' => function (QueryInterface $filterQuery, $field, $values) {
-                    $value = $values['value'];
+                    $value = (int) $values['value'];
                     if (false === \array_key_exists($value, Response::$statusTexts)) {
                         return false;
                     }
@@ -115,6 +122,11 @@ class EntryFilterType extends AbstractType
                     return $filterQuery->createCondition($expression, $parameters);
                 },
                 'label' => 'entry.filters.http_status_label',
+                'html5' => true,
+                'attr' => [
+                    'min' => 100,
+                    'max' => 527,
+                ],
             ])
             ->add('isArchived', CheckboxFilterType::class, [
                 'label' => 'entry.filters.archived_label',
@@ -176,7 +188,7 @@ class EntryFilterType extends AbstractType
                 'label' => 'entry.filters.is_public_label',
             ])
             ->add('language', ChoiceFilterType::class, [
-                'choices' => array_flip($this->repository->findDistinctLanguageByUser($this->user->getId())),
+                'choices' => array_flip($this->repository->findDistinctLanguageByUser($user->getId())),
                 'label' => 'entry.filters.language_label',
             ])
         ;

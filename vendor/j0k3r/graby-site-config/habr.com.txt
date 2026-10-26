@@ -1,10 +1,8 @@
 body: //div[@id='post-content-body']
 body: //div[contains(@class, 'post__body')]
-author: //div[contains(@class, 'tm-user-card__name_variant-article')]
 
 strip: //section[@class='article__infopanel']
 strip: //script
-strip: //div[@class='floating-image']
 
 prune: no
 tidy: no

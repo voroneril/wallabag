@@ -2,9 +2,11 @@
 
 namespace Wallabag\ApiBundle\Controller;
 
-use Nelmio\ApiDocBundle\Annotation\ApiDoc;
+use Nelmio\ApiDocBundle\Annotation\Operation;
+use OpenApi\Annotations as OA;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Annotation\Route;
 use Wallabag\AnnotationBundle\Entity\Annotation;
 use Wallabag\CoreBundle\Entity\Entry;
 
@@ -13,11 +15,26 @@ class AnnotationRestController extends WallabagRestController
     /**
      * Retrieve annotations for an entry.
      *
-     * @ApiDoc(
-     *      requirements={
-     *          {"name"="entry", "dataType"="integer", "requirement"="\w+", "description"="The entry ID"}
-     *      }
+     * @Operation(
+     *     tags={"Annotations"},
+     *     summary="Retrieve annotations for an entry.",
+     *     @OA\Parameter(
+     *         name="entry",
+     *         in="path",
+     *         description="The entry ID",
+     *         required=true,
+     *         @OA\Schema(
+     *             type="integer",
+     *             pattern="\w+",
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response="200",
+     *         description="Returned when successful"
+     *     )
      * )
+     *
+     * @Route("/api/annotations/{entry}.{_format}", methods={"GET"}, name="api_get_annotations", defaults={"_format": "json"})
      *
      * @return JsonResponse
      */
@@ -25,7 +42,7 @@ class AnnotationRestController extends WallabagRestController
     {
         $this->validateAuthentication();
 
-        return $this->forward('WallabagAnnotationBundle:WallabagAnnotation:getAnnotations', [
+        return $this->forward('Wallabag\AnnotationBundle\Controller\WallabagAnnotationController::getAnnotationsAction', [
             'entry' => $entry,
         ]);
     }
@@ -33,13 +50,57 @@ class AnnotationRestController extends WallabagRestController
     /**
      * Creates a new annotation.
      *
-     * @ApiDoc(
-     *      requirements={
-     *          {"name"="ranges", "dataType"="array", "requirement"="\w+", "description"="The range array for the annotation"},
-     *          {"name"="quote", "dataType"="string", "description"="The annotated text"},
-     *          {"name"="text", "dataType"="string", "required"=true, "description"="Content of annotation"},
-     *      }
+     * @Operation(
+     *     tags={"Annotations"},
+     *     summary="Creates a new annotation.",
+     *     @OA\Parameter(
+     *         name="entry",
+     *         in="path",
+     *         description="The entry ID",
+     *         required=true,
+     *         @OA\Schema(
+     *             type="integer",
+     *             pattern="\w+",
+     *         )
+     *     ),
+     *     @OA\RequestBody(
+     *          @OA\JsonContent(
+     *              type="object",
+     *              required={"text"},
+     *              @OA\Property(
+     *                  property="ranges",
+     *                  type="array",
+     *                  description="The range array for the annotation",
+     *                  @OA\Items(
+     *                      type="string",
+     *                      pattern="\w+",
+     *                  )
+     *              ),
+     *              @OA\Property(
+     *                  property="quote",
+     *                  type="array",
+     *                  description="The annotated text",
+     *                  @OA\Items(
+     *                      type="string",
+     *                  )
+     *              ),
+     *              @OA\Property(
+     *                  property="text",
+     *                  type="array",
+     *                  description="Content of annotation",
+     *                  @OA\Items(
+     *                      type="string",
+     *                  )
+     *              ),
+     *          )
+     *     ),
+     *     @OA\Response(
+     *         response="200",
+     *         description="Returned when successful"
+     *     )
      * )
+     *
+     * @Route("/api/annotations/{entry}.{_format}", methods={"POST"}, name="api_post_annotation", defaults={"_format": "json"})
      *
      * @return JsonResponse
      */
@@ -47,7 +108,7 @@ class AnnotationRestController extends WallabagRestController
     {
         $this->validateAuthentication();
 
-        return $this->forward('WallabagAnnotationBundle:WallabagAnnotation:postAnnotation', [
+        return $this->forward('Wallabag\AnnotationBundle\Controller\WallabagAnnotationController::postAnnotationAction', [
             'request' => $request,
             'entry' => $entry,
         ]);
@@ -56,11 +117,26 @@ class AnnotationRestController extends WallabagRestController
     /**
      * Updates an annotation.
      *
-     * @ApiDoc(
-     *      requirements={
-     *          {"name"="annotation", "dataType"="string", "requirement"="\w+", "description"="The annotation ID"}
-     *      }
+     * @Operation(
+     *     tags={"Annotations"},
+     *     summary="Updates an annotation.",
+     *     @OA\Parameter(
+     *         name="annotation",
+     *         in="path",
+     *         description="The annotation ID",
+     *         required=true,
+     *         @OA\Schema(
+     *             type="string",
+     *             pattern="\w+",
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response="200",
+     *         description="Returned when successful"
+     *     )
      * )
+     *
+     * @Route("/api/annotations/{annotation}.{_format}", methods={"PUT"}, name="api_put_annotation", defaults={"_format": "json"})
      *
      * @return JsonResponse
      */
@@ -68,7 +144,7 @@ class AnnotationRestController extends WallabagRestController
     {
         $this->validateAuthentication();
 
-        return $this->forward('WallabagAnnotationBundle:WallabagAnnotation:putAnnotation', [
+        return $this->forward('Wallabag\AnnotationBundle\Controller\WallabagAnnotationController::putAnnotationAction', [
             'annotation' => $annotation,
             'request' => $request,
         ]);
@@ -77,11 +153,26 @@ class AnnotationRestController extends WallabagRestController
     /**
      * Removes an annotation.
      *
-     * @ApiDoc(
-     *      requirements={
-     *          {"name"="annotation", "dataType"="string", "requirement"="\w+", "description"="The annotation ID"}
-     *      }
+     * @Operation(
+     *     tags={"Annotations"},
+     *     summary="Removes an annotation.",
+     *     @OA\Parameter(
+     *         name="annotation",
+     *         in="path",
+     *         description="The annotation ID",
+     *         required=true,
+     *         @OA\Schema(
+     *             type="string",
+     *             pattern="\w+",
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response="200",
+     *         description="Returned when successful"
+     *     )
      * )
+     *
+     * @Route("/api/annotations/{annotation}.{_format}", methods={"DELETE"}, name="api_delete_annotation", defaults={"_format": "json"})
      *
      * @return JsonResponse
      */
@@ -89,7 +180,7 @@ class AnnotationRestController extends WallabagRestController
     {
         $this->validateAuthentication();
 
-        return $this->forward('WallabagAnnotationBundle:WallabagAnnotation:deleteAnnotation', [
+        return $this->forward('Wallabag\AnnotationBundle\Controller\WallabagAnnotationController::deleteAnnotationAction', [
             'annotation' => $annotation,
         ]);
     }

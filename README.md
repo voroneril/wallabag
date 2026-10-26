@@ -1,8 +1,7 @@
 # wallabag
 
 ![CI](https://github.com/wallabag/wallabag/workflows/CI/badge.svg)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/wallabag/wallabag/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/wallabag/wallabag/?branch=master)
-[![Gitter](https://badges.gitter.im/gitterHQ/gitter.svg)](https://gitter.im/wallabag/wallabag)
+[![Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#wallabag:matrix.org)
 [![Donation Status](https://img.shields.io/liberapay/goal/wallabag.svg?logo=liberapay)](https://liberapay.com/wallabag/donate)
 [![Translation status](https://hosted.weblate.org/widgets/wallabag/-/svg-badge.svg)](https://hosted.weblate.org/engage/wallabag/?utm_source=widget)
 ![License](https://img.shields.io/github/license/wallabag/wallabag)
@@ -18,6 +17,8 @@ You can install it on your own server, or you can create an account on [wallabag
 * Android app: [wallabag/android-app](https://github.com/wallabag/android-app)
 * iOS app: [wallabag/ios-app](https://github.com/wallabag/ios-app)
 * Browser extension: [wallabag/wallabagger](https://github.com/wallabag/wallabagger)
+* GNOME (Linux) app: [read-it-later](https://gitlab.gnome.org/World/read-it-later) (not maintained by this project)
+* All resources about wallabag ecosystem are listed here: https://github.com/wallabag/wallabag/wiki/wallabag-ecosystem
 
 ## Documentation
 

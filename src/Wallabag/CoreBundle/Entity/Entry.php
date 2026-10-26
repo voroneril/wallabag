@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Wallabag\AnnotationBundle\Entity\Annotation;
 use Wallabag\CoreBundle\Helper\EntityTimestampsTrait;
 use Wallabag\CoreBundle\Helper\UrlHasher;
+use Wallabag\CoreBundle\Tools\Utils;
 use Wallabag\UserBundle\Entity\User;
 
 /**
@@ -659,6 +660,14 @@ class Entry
     }
 
     /**
+     * @return float
+     */
+    public function getUserReadingTime()
+    {
+        return round($this->readingTime / $this->getUser()->getConfig()->getReadingSpeed() * Utils::DEFAULT_WORDS_PER_MINUTE);
+    }
+
+    /**
      * @return string
      */
     public function getDomainName()
@@ -881,7 +890,7 @@ class Entry
     }
 
     /**
-     * @return \Datetime
+     * @return \DateTime
      */
     public function getPublishedAt()
     {
@@ -891,7 +900,7 @@ class Entry
     /**
      * @return Entry
      */
-    public function setPublishedAt(\Datetime $publishedAt)
+    public function setPublishedAt(\DateTime $publishedAt)
     {
         $this->publishedAt = $publishedAt;
 

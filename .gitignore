@@ -9,19 +9,19 @@
 !/var/sessions
 /var/sessions/*
 !var/sessions/.gitkeep
-!var/SymfonyRequirements.php
 /bin/*
 !/bin/console
-!/bin/symfony_requirements
-.php_cs.cache
+.php-cs-fixer.php
+.php-cs-fixer.cache
 .phpunit.result.cache
 phpunit.xml
+docker-compose.override.yml
 
 # Parameters
 /app/config/parameters.yml
 
 # Managed by Composer
-# /vendor/
+/vendor/
 
 # Assets and user uploads
 web/uploads/

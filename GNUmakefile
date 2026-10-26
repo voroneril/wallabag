@@ -40,13 +40,13 @@ ifdef DB
 endif
 	-php bin/console doctrine:database:drop --force --env=test
 	php bin/console doctrine:database:create --env=test
-	php bin/console doctrine:migrations:migrate --no-interaction --env=test
+	php bin/console doctrine:migrations:migrate --no-interaction --env=test -vv
 
 fixtures: ## Load fixtures into database
 	php bin/console doctrine:fixtures:load --no-interaction --env=test
 
 test: prepare fixtures ## Launch wallabag testsuite
-	XDEBUG_MODE=off bin/simple-phpunit -v
+	XDEBUG_MODE=off php -dmemory_limit=-1 bin/simple-phpunit -v
 
 release: ## Create a package. Need a VERSION parameter (eg: `make release VERSION=master`).
 ifndef VERSION

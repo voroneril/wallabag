@@ -3,7 +3,7 @@
    ========================================================================== */
 
 main {
-  #content {
+  div#content {
     padding: 0 0.5rem;
   }
 }
@@ -73,7 +73,7 @@ main {
 
   .card-entry-labels-hidden li {
     display: inline-block;
-    background-color: $blueAccentColor;
+    background-color: $blue-accent-color;
     margin: 0 5px;
     padding: 5px 12px;
     border-radius: 3px;
@@ -83,10 +83,6 @@ main {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .card-content .estimatedTime {
-    margin-bottom: 10px;
   }
 
   .card-action {
@@ -160,7 +156,7 @@ a.original:not(.waves-effect) {
 .card-tag-labels li {
   margin: 10px 10px 10px auto;
   padding: 5px 12px 5px 16px !important;
-  background-color: $blueAccentColor;
+  background-color: $blue-accent-color;
   border-radius: 3px;
   color: #fff;
   cursor: default;
@@ -181,6 +177,7 @@ a.original:not(.waves-effect) {
 .card-entry-tags a,
 .card-entry-labels a,
 .card-tag-labels a,
+.card-tag-labels button,
 .card-entry-labels-hidden a,
 #list .chip a {
   text-decoration: none;
@@ -209,6 +206,10 @@ a.original:not(.waves-effect) {
 
 .card-tag-icon {
   display: flex;
+}
+
+.card-tag-delete {
+  margin-left: 10px;
 }
 
 .card-tag-labels {
@@ -247,7 +248,7 @@ a.original:not(.waves-effect) {
     }
 
     .chip {
-      background-color: $blueAccentColor;
+      background-color: $blue-accent-color;
       padding: 0 7px;
       margin: auto 1px;
       border-radius: 6px;
@@ -311,8 +312,17 @@ a.original:not(.waves-effect) {
   color: #fff !important;
 }
 
-.settings .div_tabs {
+.settings .tabs-container {
   padding-bottom: 15px;
+}
+
+.settings .settings-checkbox-col {
+  padding: 0;
+}
+
+.settings .settings-checkbox-label {
+  margin-bottom: 20px;
+  height: 3rem;
 }
 
 .entries-row {
